@@ -1,14 +1,7 @@
 #ifndef LEDGER_H
 #define LEDGER_H
 
-#include "common.h" 
-
-typedef struct {
-    int bid_id;
-    int ask_id;
-    double price;
-    int quantity;
-} Transaction;
+#include <common.h>  // Transaction definido aqui
 
 typedef struct {
     Transaction* data;
