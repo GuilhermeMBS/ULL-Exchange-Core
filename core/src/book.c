@@ -1,6 +1,7 @@
 /*
     Fazer checagem de erros para tudo
     Otimização X Legibilidade
+    Pensar em const
 */
 
 #pragma once 
@@ -10,11 +11,10 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 
 #define BUFFER_SIZE 4096
-#define TRUE 1 // Cuidado ao fazer == TRUE (não engloba != 1 ^ !=0)
-#define FALSE 0
 
 /*
 Left child: 2 * i + 1
@@ -46,36 +46,43 @@ ret_code_t obk_initialize_book(obk_order_book_t* st) {
 }
 
 
-static ret_code_t obk_heapify(cmn_order_t* book, uint32_t i, uint32_t size) {
-    uint32_t l;
-    uint32_t r;
-    uint32_t p;
+static ret_code_t obk_heapify(cmn_order_t* book, int32_t i, uint32_t size) {
+    const double i_price = book[i].price;
+    const tm_stmp_t i_time = book[i].timestamp;
+    int32_t l, r, p;
     cmn_order_t tmp;
-    uint8_t stop = FALSE;
+    bool stop = false;
 
-    // Tem como escrever isto melhor?
-    while(stop == FALSE) {
+    // Otimizar com bits?
+    while(stop == false) {
         l  = 2*i + 1;
         r  = 2*i + 2;
         p  = (i - 1) / 2;
 
-        if (i == 0 || i == size) stop = TRUE;
-        else if ((book[l].price > book[i].price) || ((book[l].price == book[i].price) && (book[l].timestamp < book[i].timestamp))) {
+        bool c1_l = (l < size) ? (book[l].price > i_price) : false;
+        bool c2_l = (l < size) ? (book[l].price == i_price) && (book[l].timestamp < i_time) : false;
+        bool c1_r = (r < size) ? (book[r].price > i_price) : false;
+        bool c2_r = (r < size) ? (book[r].price == i_price) && (book[r].timestamp < i_time) : false;
+
+        if (c1_l || c2_l) {
             tmp = book[i];
             book[i] = book[l];
             book[l] = tmp;
+            i = l;
         }
-        else if ((book[r].price > book[i].price) || ((book[r].price == book[i].price) && (book[r].timestamp < book[i].timestamp))) {
+        else if (c1_r || c2_r) {
             tmp = book[i];
             book[i] = book[r];
             book[r] = tmp;
+            i = r;
         }
         else if ((book[i].price > book[p].price) || ((book[i].price == book[p].price) && (book[i].timestamp < book[p].timestamp))) {
             tmp = book[p];
             book[p] = book[i];
             book[i] = tmp;
+            i = p;
         }
-        else stop = TRUE;
+        else stop = true;
     }
 
     return ERR_NONE;
@@ -99,7 +106,7 @@ ret_code_t obk_insert_order(obk_order_book_t* book, cmn_order_t* cpy) {
     if (*idx == BUFFER_SIZE) return ERR_MEM;
 
     side_book[*idx] = *cpy;
-    code = heapify(side_book, *idx, (*idx)++);
+    code = obk_heapify(side_book, *idx, (*idx)++);
     cmn_check_error(code);
 
     return ERR_NONE;
@@ -145,7 +152,7 @@ ret_code_t changeOrder(obk_order_book_t* book, uint32_t qty, char side) {
     }
     else return ERR_ORD;
     cmn_check_error(code);
-    
+
     return ERR_NONE;
 };
 

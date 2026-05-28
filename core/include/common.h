@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 
 #define ERR_NONE 0
@@ -10,17 +11,17 @@
 
 
 typedef int8_t ret_code_t;
-
+typedef uint32_t tm_stmp_t;
 
 typedef struct {
-    uint32_t timestamp;
+    tm_stmp_t timestamp;
     uint32_t order_id;
     uint32_t client_id;
     uint32_t quantity;
     double price;
     char symbol[8];
     char side;
-    char is_valid;
+    bool is_valid;
 } cmn_order_t;
 
 
