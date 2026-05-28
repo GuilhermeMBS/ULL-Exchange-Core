@@ -2,15 +2,28 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
+
+
+#define ERR_NONE 0
+#define ERR_ORD -1
+#define ERR_MEM -3
+
+
+typedef int8_t ret_code_t;
+typedef uint32_t tm_stmp_t;
 
 typedef struct {
-    uint32_t timestamp;     // Horário da ordem
-    int32_t order_id;       // ID único da ordem (-1 se for inválida)
-    int32_t client_id;      // ID do cliente
-    int32_t quantity;       // Quantidade
-    double price;           // Preço
-    char side;              // Comprador ('C') ou Vendedor ('V')
-} Order;
+    tm_stmp_t timestamp;
+    uint32_t order_id;
+    uint32_t client_id;
+    uint32_t quantity;
+    double price;
+    char symbol[8];
+    char side;
+    bool is_valid;
+} cmn_order_t;
+
 
 typedef struct {
     uint32_t timestamp;          // Momento exato do match
@@ -21,4 +34,9 @@ typedef struct {
     int32_t sell_client_id;      // ID do vendedor
     double price;                // Preço final da execução (pode ser diferente do pedido)
     int32_t quantity;            // Quantidade que foi trocada
-} Transaction;
+} cmn_transaction_t;
+
+
+void cmn_check_error(ret_code_t code);
+
+ret_code_t cmn_copy_order(cmn_order_t* cpy, cmn_order_t* buffer, int32_t idx);
