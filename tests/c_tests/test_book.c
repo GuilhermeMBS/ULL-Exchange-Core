@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common.h"
+#include "error.h"
 #include "book.h"
 
 #include <stdint.h>

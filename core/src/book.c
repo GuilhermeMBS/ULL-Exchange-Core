@@ -1,12 +1,11 @@
 /*
     Fazer checagem de erros para tudo
     Otimização X Legibilidade
-    Pensar em const
 */
 
 #pragma once 
 
-#include "common.h"
+#include "error.h"
 #include "book.h"
 
 #include <stdio.h>
@@ -16,16 +15,24 @@
 
 #define BUFFER_SIZE 4096
 
-/*
-Left child: 2 * i + 1
-Right child: 2 * i + 2
-Parent: (i - 1) / 2
-*/
+
 static struct obk_order_book_private_s {
-    cmn_order_t asks[BUFFER_SIZE]; // Min Heap
-    cmn_order_t bids[BUFFER_SIZE]; // Max Heap
+    obk_order_t asks[BUFFER_SIZE]; // Min Heap
+    obk_order_t bids[BUFFER_SIZE]; // Max Heap
     int32_t size_asks;
     int32_t size_bids;
+};
+
+
+ret_code_t cmn_copy_order(obk_order_t* cpy, obk_order_t* buffer, int32_t idx) {
+    cpy->client_id = buffer[idx].client_id;
+    cpy->order_id = buffer[idx].order_id;
+    cpy->price = buffer[idx].price;
+    cpy->quantity = buffer[idx].quantity;
+    cpy->side = buffer[idx].side;
+    cpy->timestamp = buffer[idx].timestamp;
+
+    return 0;
 };
 
 
@@ -46,11 +53,11 @@ ret_code_t obk_initialize_book(obk_order_book_t* st) {
 }
 
 
-static ret_code_t obk_heapify(cmn_order_t* book, int32_t i, uint32_t size) {
+static ret_code_t obk_heapify(obk_order_t* book, int32_t i, uint32_t size) {
     const double i_price = book[i].price;
     const tm_stmp_t i_time = book[i].timestamp;
     int32_t l, r, p;
-    cmn_order_t tmp;
+    obk_order_t tmp;
     bool stop = false;
 
     // Otimizar com bits?
@@ -89,9 +96,9 @@ static ret_code_t obk_heapify(cmn_order_t* book, int32_t i, uint32_t size) {
 };
 
 
-ret_code_t obk_insert_order(obk_order_book_t* book, cmn_order_t* cpy) {
+ret_code_t obk_insert_order(obk_order_book_t* book, obk_order_t* cpy) {
     ret_code_t code;
-    cmn_order_t* side_book;
+    obk_order_t* side_book;
     int32_t* idx;
 
     if (cpy->side == 'A') {
@@ -107,14 +114,14 @@ ret_code_t obk_insert_order(obk_order_book_t* book, cmn_order_t* cpy) {
 
     side_book[*idx] = *cpy;
     code = obk_heapify(side_book, *idx, (*idx)++);
-    cmn_check_error(code);
+    err_check_error(code);
 
     return ERR_NONE;
 };
 
 
 ret_code_t obk_remove_order(obk_order_book_t* book, char side) {
-    cmn_order_t* side_book;
+    obk_order_t* side_book;
     int32_t* book_size;
     ret_code_t code;
 
@@ -130,14 +137,14 @@ ret_code_t obk_remove_order(obk_order_book_t* book, char side) {
 
     side_book[0] = side_book[(*book_size)--];
     code = obk_heapify(book, 0, *book_size);
-    cmn_check_error(code);
+    err_check_error(code);
 
     return ERR_NONE;
 };
 
 
 ret_code_t changeOrder(obk_order_book_t* book, uint32_t qty, char side) {
-    cmn_order_t* side_book;
+    obk_order_t* side_book;
     ret_code_t code;
 
     if (side == 'A') {
@@ -151,21 +158,21 @@ ret_code_t changeOrder(obk_order_book_t* book, uint32_t qty, char side) {
         code = obk_heapify(side_book, 0, book->size_bids);
     }
     else return ERR_ORD;
-    cmn_check_error(code);
+    err_check_error(code);
 
     return ERR_NONE;
 };
 
 
-cmn_order_t obk_get_order(obk_order_book_t* book, char side) {
-    cmn_order_t cpy;
+obk_order_t obk_get_order(obk_order_book_t* book, char side) {
+    obk_order_t cpy;
     ret_code_t code;
     
     if (side == 'A') code = cmn_copy_order(&cpy, book->asks, 0);
     else if (side == 'B') code = cmn_copy_order(&cpy, book->bids, 0);
     else (code = ERR_ORD);
 
-    cmn_check_error(code);
+    err_check_error(code);
 
     return cpy;
 };
