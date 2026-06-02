@@ -9,8 +9,15 @@ Teste de Remoção: Remover uma ordem do meio da fila e garantir que os ponteiro
 next não se perderam (não deixar a lista "quebrada").
 */
 
-#include "error.h"
+#pragma once
 
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "errorlib.h"
+
+
+typedef uint32_t tm_stmp_t;
 
 typedef struct {
     tm_stmp_t timestamp;
@@ -23,16 +30,18 @@ typedef struct {
     bool is_valid;
 } obk_order_t;
 
+typedef struct obk_book_private_s* obk_book_pt; // Opaque Pointer
 
-typedef struct obk_order_book_private_s obk_order_book_t;
+typedef obk_order_t* obk_order_pt;
 
 
-ret_code_t cmn_copy_order(obk_order_t* cpy, obk_order_t* buffer, int32_t idx);
+ret_code_t obk_initialize_book(obk_book_pt* book);
+ret_code_t obk_clear_book(obk_book_pt* book);
 
-ret_code_t obk_initialize_book(obk_order_book_t* st);
+ret_code_t obk_copy_order(obk_order_pt cpy, obk_order_pt buffer, int32_t idx);
 
-ret_code_t obk_insert_order(obk_order_book_t* book, obk_order_t* cpy);
-ret_code_t obk_change_order(int32_t id, int32_t qty, char side);
-ret_code_t obk_remove_order(obk_order_book_t* book, char side);
+ret_code_t obk_insert_order(obk_book_pt book, obk_order_pt cpy);
+ret_code_t obk_change_order(obk_book_pt book, uint32_t qty, char side);
+ret_code_t obk_remove_order(obk_book_pt book, char side);
 
-obk_order_t obk_get_order(obk_order_book_t* book, char side); // Side = 'A' / 'B'
+obk_order_t obk_get_order(obk_book_pt book, char side); // Side = 'A' / 'B'
