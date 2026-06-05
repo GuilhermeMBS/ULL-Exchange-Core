@@ -35,6 +35,7 @@ ret_code_t obk_initialize_book(obk_book_pt* book) {
         new_book->asks[i].quantity    = new_book->bids[i].quantity  = 0;
         new_book->asks[i].side        = new_book->bids[i].side      = '\0';
         new_book->asks[i].timestamp   = new_book->bids[i].timestamp = 0;
+        new_book->asks[i].is_valid   = new_book->bids[i].is_valid = false;
     }
     *book = new_book;
 
@@ -64,7 +65,7 @@ ret_code_t obk_copy_order(obk_order_pt cpy, obk_order_pt buffer, int32_t idx) {
 }
 
 
-static ret_code_t obk_heapify(obk_order_pt book, int32_t i, uint32_t size) {
+static ret_code_t obk_heapify(obk_order_pt book, int32_t i, uint32_t size, bool max) {
     const double i_price = book[i].price;
     const tm_stmp_t i_time = book[i].timestamp;
     uint32_t l, r, p;
@@ -75,11 +76,20 @@ static ret_code_t obk_heapify(obk_order_pt book, int32_t i, uint32_t size) {
         l  = 2*i + 1;
         r  = 2*i + 2;
         p  = (i - 1) / 2;
+        bool c1_l, c1_r, cp;
 
-        bool c1_l = (l < size) ? (book[l].price > i_price) : false;
         bool c2_l = (l < size) ? (book[l].price == i_price) && (book[l].timestamp < i_time) : false;
-        bool c1_r = (r < size) ? (book[r].price > i_price) : false;
         bool c2_r = (r < size) ? (book[r].price == i_price) && (book[r].timestamp < i_time) : false;
+        if (max) {
+            c1_l = (l < size) ? (book[l].price > i_price) : false;
+            c1_r = (r < size) ? (book[r].price > i_price) : false;
+            cp = (book[i].price > book[p].price);
+        }
+        else {
+            c1_l = (l < size) ? (book[l].price < i_price) : false;
+            c1_r = (r < size) ? (book[r].price < i_price) : false;
+            cp = (book[i].price < book[p].price);
+        }
 
         if (c1_l || c2_l) {
             tmp = book[i];
@@ -93,7 +103,7 @@ static ret_code_t obk_heapify(obk_order_pt book, int32_t i, uint32_t size) {
             book[r] = tmp;
             i = r;
         }
-        else if ((book[i].price > book[p].price) || ((book[i].price == book[p].price) && (book[i].timestamp < book[p].timestamp))) {
+        else if (cp || ((book[i].price == book[p].price) && (book[i].timestamp < book[p].timestamp))) {
             tmp = book[p];
             book[p] = book[i];
             book[i] = tmp;
@@ -110,20 +120,23 @@ ret_code_t obk_insert_order(obk_book_pt book, obk_order_pt cpy) {
     ret_code_t code;
     obk_order_pt side_book;
     int32_t* idx;
+    bool max_heap;
 
     if (cpy->side == 'A') {
         side_book = book->asks;
         idx = &(book->size_asks);
+        max_heap = false;
     }
     else if (cpy->side == 'B') {
         side_book = book->bids;
         idx = &(book->size_bids);
+        max_heap = true;
     }
     else return ERR_ORD;
-    if (*idx == BUFFER_SIZE) return ERR_MEM;
+    if (*idx >= BUFFER_SIZE) return ERR_MEM;
 
     side_book[*idx] = *cpy;
-    code = obk_heapify(side_book, *idx, (*idx + 1));
+    code = obk_heapify(side_book, *idx, (*idx + 1), max_heap);
     (*idx)++;
     err_check_error(code);
 
@@ -135,21 +148,24 @@ ret_code_t obk_remove_order(obk_book_pt book, char side) {
     obk_order_pt side_book;
     int32_t* book_size;
     ret_code_t code;
+    bool max_heap;
 
     if (side == 'A') {
         side_book = book->asks;
         book_size = &(book->size_asks);
+        max_heap = false;
     }
     else if (side == 'B') {
         side_book = book->bids;
         book_size = &(book->size_bids);
+        max_heap = true;
     }
     else return ERR_ORD;
     if (*book_size <= 0) return ERR_ORD;
 
     (*book_size)--;
     side_book[0] = side_book[*book_size];
-    code = obk_heapify(side_book, 0, *book_size);
+    code = obk_heapify(side_book, 0, *book_size, max_heap);
     err_check_error(code);
 
     return ERR_NONE;
@@ -163,12 +179,12 @@ ret_code_t obk_change_order(obk_book_pt book, uint32_t qty, char side) {
     if (side == 'A') {
         side_book = book->asks;
         side_book[0].quantity = qty;
-        code = obk_heapify(side_book, 0, book->size_asks);
+        code = obk_heapify(side_book, 0, book->size_asks, false);
     }
     else if (side == 'B') {
         side_book = book->bids;
         side_book[0].quantity = qty;
-        code = obk_heapify(side_book, 0, book->size_bids);
+        code = obk_heapify(side_book, 0, book->size_bids, true);
     }
     else return ERR_ORD;
     err_check_error(code);
