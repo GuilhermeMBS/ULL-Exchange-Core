@@ -1,6 +1,8 @@
-#include "error.h"
+#pragma once
+ 
+#include <stdint.h>
+#include "errorlib.h"
 #include "book.h"
-
 
 /*
 Retorno: Ponteiro para o início do array de Order na RAM.

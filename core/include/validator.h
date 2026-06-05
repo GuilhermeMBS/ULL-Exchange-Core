@@ -1,6 +1,8 @@
-#include "error.h"
+#pragma once
+ 
+#include <stdint.h>
+#include "errorlib.h"
 #include "book.h"
-
 
 /*
 Retorno: Nenhum (altera o order_id para -1 nas ordens inválidas).
