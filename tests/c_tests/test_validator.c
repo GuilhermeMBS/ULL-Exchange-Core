@@ -10,6 +10,8 @@ cmd: gcc core/src/errorlib.c core/src/parser.c core/src/validator.c tests/c_test
 #include "validator.h"
 #include "book.h"
 
+/* Teste 1: Valida que vld_validate_order lida com buffer NULL
+ * de forma segura, retornando imediatamente sem travar. */
 void test_null_buffer() {
     printf("[TEST] Validator - NULL buffer...\n");
 
@@ -18,6 +20,8 @@ void test_null_buffer() {
     printf("[PASS] NULL buffer handled correctly.\n\n");
 }
 
+/* Teste 2: Valida que vld_validate_order não faz nada quando count = 0,
+ * deixando uma ordem válida intacta. */
 void test_zero_count() {
     printf("[TEST] Validator - count = 0...\n");
 
@@ -37,6 +41,8 @@ void test_zero_count() {
     printf("[PASS] count = 0 handled correctly.\n\n");
 }
 
+/* Teste 3: Valida que ordens estruturalmente corretas (preço positivo,
+ * quantidade >= 1, lado válido) são preservadas com is_valid = true. */
 void test_valid_orders() {
     printf("[TEST] Validator - valid orders...\n");
 
@@ -65,6 +71,8 @@ void test_valid_orders() {
     printf("[PASS] Valid orders preserved.\n\n");
 }
 
+/* Teste 4: Valida que uma ordem com preço = 0.0 é rejeitada
+ * (is_valid = false, order_id = -1). */
 void test_invalid_price_zero() {
     printf("[TEST] Validator - price = 0...\n");
 
@@ -84,6 +92,8 @@ void test_invalid_price_zero() {
     printf("[PASS] Price zero invalidated.\n\n");
 }
 
+/* Teste 5: Valida que uma ordem com preço negativo é rejeitada
+ * (is_valid = false, order_id = -1). */
 void test_invalid_price_negative() {
     printf("[TEST] Validator - negative price...\n");
 
@@ -103,6 +113,8 @@ void test_invalid_price_negative() {
     printf("[PASS] Negative price invalidated.\n\n");
 }
 
+/* Teste 6: Valida que uma ordem com quantity = 0 é rejeitada
+ * (is_valid = false, order_id = -1). */
 void test_invalid_quantity() {
     printf("[TEST] Validator - quantity = 0...\n");
 
@@ -122,6 +134,9 @@ void test_invalid_quantity() {
     printf("[PASS] Quantity zero invalidated.\n\n");
 }
 
+/* Teste 7: Valida que uma ordem com caractere de lado não reconhecido
+ * (qualquer coisa diferente de 'A' ou 'B') é rejeitada
+ * (is_valid = false, order_id = -1). */
 void test_invalid_side() {
     printf("[TEST] Validator - invalid side...\n");
 
@@ -141,6 +156,9 @@ void test_invalid_side() {
     printf("[PASS] Invalid side rejected.\n\n");
 }
 
+/* Teste 8: Valida que uma ordem já marcada como inválida pelo Parser
+ * (is_valid = false) é normalizada pelo Validator: o order_id é definido
+ * como -1 sem que seus campos sejam reavaliados. */
 void test_previously_invalid_order() {
     printf("[TEST] Validator - previously invalid order...\n");
 
@@ -159,6 +177,9 @@ void test_previously_invalid_order() {
     printf("[PASS] Previously invalid order normalized.\n\n");
 }
 
+/* Teste 9: Valida o comportamento com um buffer misto contendo uma ordem
+ * válida e três inválidas (preço zero, quantidade zero, lado inválido).
+ * Apenas a primeira ordem deve permanecer válida; as demais devem ser rejeitadas. */
 void test_mixed_buffer() {
     printf("[TEST] Validator - mixed buffer...\n");
 

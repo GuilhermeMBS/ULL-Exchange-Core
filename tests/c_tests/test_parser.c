@@ -11,6 +11,9 @@ cmd: gcc core/src/errorlib.c core/src/parser.c core/src/validator.c tests/c_test
 #include "validator.h"
 #include "book.h"
 
+/* Auxiliar: cria um arquivo CSV temporário com o conteúdo fornecido.
+ * Utilizado pelos testes abaixo para simular arquivos de mercado reais
+ * sem depender de arquivos externos em disco. */
 static void create_csv(const char *filename, const char *content) {
 
     FILE *fp = fopen(filename, "w");
@@ -21,6 +24,8 @@ static void create_csv(const char *filename, const char *content) {
     fclose(fp);
 }
 
+/* Teste 1: Valida que prs_create_orders retorna NULL quando qualquer
+ * um dos argumentos é NULL, sem travar ou causar comportamento indefinido. */
 void test_null_arguments() {
 
     printf("[TEST] Parser - NULL arguments...\n");
@@ -33,6 +38,8 @@ void test_null_arguments() {
     printf("[PASS] NULL arguments handled.\n\n");
 }
 
+/* Teste 2: Valida que prs_create_orders retorna NULL quando o
+ * caminho de arquivo fornecido não existe em disco. */
 void test_nonexistent_file() {
 
     printf("[TEST] Parser - nonexistent file...\n");
@@ -44,6 +51,8 @@ void test_nonexistent_file() {
     printf("[PASS] Nonexistent file rejected.\n\n");
 }
 
+/* Teste 3: Valida que prs_create_orders retorna NULL quando recebe
+ * um arquivo completamente vazio (sem cabeçalho e sem dados). */
 void test_empty_file() {
 
     printf("[TEST] Parser - empty file...\n");
@@ -59,6 +68,8 @@ void test_empty_file() {
     printf("[PASS] Empty file rejected.\n\n");
 }
 
+/* Teste 4: Valida que prs_create_orders retorna NULL quando o arquivo
+ * contém apenas a linha de cabeçalho e nenhuma linha de dados. */
 void test_header_only() {
 
     printf("[TEST] Parser - header only...\n");
@@ -77,6 +88,9 @@ void test_header_only() {
     printf("[PASS] Header-only file rejected.\n\n");
 }
 
+/* Teste 5: Valida que uma linha CSV bem formada é corretamente
+ * convertida para uma struct obk_order_t, com todos os campos
+ * correspondendo aos valores esperados e is_valid definido como true. */
 void test_single_valid_order() {
 
     printf("[TEST] Parser - single valid order...\n");
@@ -110,6 +124,8 @@ void test_single_valid_order() {
     printf("[PASS] Single valid order loaded.\n\n");
 }
 
+/* Teste 6: Valida que múltiplas linhas CSV bem formadas são todas
+ * carregadas no buffer em ordem, com o order_id correto em cada posição. */
 void test_multiple_valid_orders() {
 
     printf("[TEST] Parser - multiple valid orders...\n");
@@ -141,6 +157,9 @@ void test_multiple_valid_orders() {
     printf("[PASS] Multiple orders loaded.\n\n");
 }
 
+/* Teste 7: Valida que uma linha CSV malformada (campos insuficientes)
+ * não é ignorada silenciosamente — ela ocupa uma posição no buffer,
+ * porém é marcada como inválida (is_valid = false, order_id = -1). */
 void test_malformed_line() {
 
     printf("[TEST] Parser - malformed line...\n");
@@ -169,6 +188,9 @@ void test_malformed_line() {
     printf("[PASS] Malformed line detected.\n\n");
 }
 
+/* Teste 8: Valida a integração entre Parser e Validator.
+ * Uma linha CSV estruturalmente válida com quantity = 0 deve ser carregada
+ * pelo Parser e depois invalidada pelo Validator antes do retorno. */
 void test_validator_integration() {
 
     printf("[TEST] Parser + Validator integration...\n");
@@ -196,6 +218,9 @@ void test_validator_integration() {
     printf("[PASS] Validator invoked automatically.\n\n");
 }
 
+/* Teste 9: Valida o comportamento de prs_free_buffer:
+ *   - retorna 0 ao liberar um buffer válido alocado;
+ *   - retorna -1 ao ser chamado com ponteiro NULL. */
 void test_free_buffer() {
 
     printf("[TEST] Parser - free buffer...\n");
