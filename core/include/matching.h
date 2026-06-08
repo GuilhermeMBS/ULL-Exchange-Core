@@ -14,16 +14,24 @@ typedef struct {
 } mtc_transaction_t;
 
 
-/* 
+/*
 Retorno: 0 (sem Match → foi para o Book),  1 (Match Total), 2 (Match Parcial).
 Erro: -1 (ordem inválida recebida).
 */
 int32_t mtc_make_trade(obk_order_t* incoming);
 
 
-/* 
+/*
 Retorno: 0 (processado).
 Erro: -1 (falha na comunicação com o Book).
 */
 int32_t mtc_make_bid(obk_order_t* order);
 int32_t mtc_make_sell(obk_order_t* order);
+
+
+/* Introspection — reset state and inspect internal book (test support) */
+void        mtc_reset(void);
+int32_t     mtc_get_ask_count(void);
+int32_t     mtc_get_bid_count(void);
+obk_order_t mtc_get_best_ask(void);
+obk_order_t mtc_get_best_bid(void);

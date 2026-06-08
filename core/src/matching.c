@@ -1,9 +1,7 @@
 #pragma once
 
 #include "matching.h"
-
 #include <time.h>
-
 
 #define BUFFER_SIZE 4096
 
@@ -121,3 +119,16 @@ int32_t mtc_make_trade(obk_order_t* incoming) {
     if (incoming->side == 'A') return mtc_make_sell(incoming);
     return ERR_ORD;
 }
+
+
+void mtc_reset(void) {
+    s_book.size_asks = 0;
+    s_book.size_bids = 0;
+    s_trade_id = 0;
+}
+
+int32_t mtc_get_ask_count(void) { return s_book.size_asks; }
+int32_t mtc_get_bid_count(void) { return s_book.size_bids; }
+
+obk_order_t mtc_get_best_ask(void) { return obk_get_order(&s_book, 'A'); }
+obk_order_t mtc_get_best_bid(void) { return obk_get_order(&s_book, 'B'); }
