@@ -2,8 +2,9 @@
 #define LEDGER_H
 
 #include "common.h"
+#include "error.h"
+#include "matching.h"
 
-/*
   @file ledger.h
   @brief Módulo de registro de transações em arquivo binário.
  */
