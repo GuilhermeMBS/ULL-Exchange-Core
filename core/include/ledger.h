@@ -1,10 +1,9 @@
-#ifndef LEDGER_H
-#define LEDGER_H
+#pragma once
 
-#include "common.h"
-#include "error.h"
+#include "errorlib.h"
 #include "matching.h"
 
+/*
   @file ledger.h
   @brief Módulo de registro de transações em arquivo binário.
  */
@@ -22,13 +21,13 @@ int32_t ldg_init_ledger(const char* bin_path);
  @param t  Ponteiro para a transação a ser gravada
  @return   0 se gravado com sucesso, -1 se falha de escrita
  */
-int32_t ldg_register_trade(cmn_transaction_t* t);
+int32_t ldg_register_trade(mtc_transaction_t* t);
 
 /*
  Agrupa um array de transações e sua quantidade.
  */
 typedef struct {
-    cmn_transaction_t* data;  /* Array de transações */
+    mtc_transaction_t* data;  /* Array de transações */
     int count;                /* Número de transações no array */
 } Buffer;
 
@@ -39,5 +38,3 @@ typedef struct {
   @return              0 se sucesso, -3 se entrada inválida ou falha de escrita
  */
 int registerTrades(Buffer* transactions);
-
-#endif

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
+
 #include "ledger.h"
 
 /* Testa buffer nulo — deve retornar -3 (erro de memória) */
@@ -20,7 +21,7 @@ void test_null_data() {
 
 /* Testa buffer com count zero — deve retornar -3 */
 void test_zero_count() {
-    cmn_transaction_t t = {0};
+    mtc_transaction_t t = {0};
     Buffer b = { .data = &t, .count = 0 };
     int result = registerTrades(&b);
     assert(result == -3);
@@ -32,7 +33,7 @@ void test_zero_count() {
  * Salvar 100 transações completas na ordem — deve retornar 0
  */
 void test_100_transactions_in_order() {
-    cmn_transaction_t transactions[100];
+    mtc_transaction_t transactions[100];
 
     for (int i = 0; i < 100; i++) {
         transactions[i].timestamp      = 1000 + i;
@@ -56,7 +57,7 @@ void test_100_transactions_in_order() {
  * lendo o arquivo binário gerado
  */
 void test_order_preserved_in_file() {
-    cmn_transaction_t transactions[5];
+    mtc_transaction_t transactions[5];
     for (int i = 0; i < 5; i++) {
         transactions[i].trade_id  = i + 1;
         transactions[i].price     = 10.0 * (i + 1);
@@ -71,8 +72,8 @@ void test_order_preserved_in_file() {
     FILE* f = fopen("ledger.bin", "rb");
     assert(f != NULL);
 
-    cmn_transaction_t read_back[5];
-    fread(read_back, sizeof(cmn_transaction_t), 5, f);
+    mtc_transaction_t read_back[5];
+    fread(read_back, sizeof(mtc_transaction_t), 5, f);
     fclose(f);
 
     for (int i = 0; i < 5; i++) {

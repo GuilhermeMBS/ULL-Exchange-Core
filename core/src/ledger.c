@@ -21,7 +21,7 @@ int registerTrades(Buffer* transactions) {
 
     /* Grava todas as transações de uma vez */
     size_t written = fwrite(transactions->data,
-                            sizeof(cmn_transaction_t),
+                            sizeof(mtc_transaction_t),
                             transactions->count,
                             f);
     fclose(f);
