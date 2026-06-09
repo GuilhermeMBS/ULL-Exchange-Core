@@ -104,6 +104,8 @@ void test_ordem_preservada_no_arquivo() {
 }
 
 int main() {
+    printf("\n============== STARTING LEDGER TESTS SIMULATION ===============\n\n");
+
     test_init_caminho_valido();
     test_init_caminho_invalido();
     test_register_ponteiro_nulo();
@@ -111,5 +113,8 @@ int main() {
     test_100_transacoes_em_ordem();
     test_ordem_preservada_no_arquivo();
     printf("\nTodos os testes do Ledger passaram!\n");
+    
+    printf("============ ALL TEST DOMAINS VERIFIED SUCCESSFULLY ===========\n\n");
+
     return 0;
 }

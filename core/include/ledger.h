@@ -29,11 +29,11 @@ ret_code_t ldg_init_ledger(const char* bin_path);
   @param t  Pointer to the transaction to be written
   @return   0 on success, -3 on write failure
 */
-int32_t ldg_register_trade(mtc_transaction_t* t);
+ret_code_t ldg_register_trade(mtc_transaction_t* t);
 
 /*
   Writes all transactions in the buffer to the ledger.
   @param transactions  Pointer to the ldg_buffer_t with the transactions
   @return              0 on success, -3 on invalid input or write failure
 */
-int32_t ldg_register_all(ldg_buffer_t* transactions);
+ret_code_t ldg_register_all(ldg_buffer_t* transactions);

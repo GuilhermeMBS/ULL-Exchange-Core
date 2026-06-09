@@ -7,7 +7,7 @@ static obk_book_pt s_book    = NULL;
 static int32_t     s_trade_id = 0;
 
 
-int32_t mtc_make_bid(obk_order_t* order) {
+ret_code_t mtc_make_bid(obk_order_t* order) {
     if (!order) return ERR_ORD;
 
     if (obk_ask_count(s_book) == 0)
@@ -48,7 +48,7 @@ int32_t mtc_make_bid(obk_order_t* order) {
 }
 
 
-int32_t mtc_make_sell(obk_order_t* order) {
+ret_code_t mtc_make_sell(obk_order_t* order) {
     if (!order) return ERR_ORD;
 
     if (obk_bid_count(s_book) == 0)
@@ -89,7 +89,7 @@ int32_t mtc_make_sell(obk_order_t* order) {
 }
 
 
-int32_t mtc_make_trade(obk_order_t* incoming) {
+ret_code_t mtc_make_trade(obk_order_t* incoming) {
     if (!incoming) return ERR_ORD;
     if (!s_book) {
         if (obk_initialize_book(&s_book) != ERR_NONE) return ERR_MEM;
@@ -106,8 +106,8 @@ void mtc_reset(void) {
     s_trade_id = 0;
 }
 
-int32_t mtc_get_ask_count(void) { return obk_ask_count(s_book); }
-int32_t mtc_get_bid_count(void) { return obk_bid_count(s_book); }
+ret_code_t mtc_get_ask_count(void) { return obk_ask_count(s_book); }
+ret_code_t mtc_get_bid_count(void) { return obk_bid_count(s_book); }
 
 obk_order_t mtc_get_best_ask(void) { return obk_get_order(s_book, 'A'); }
 obk_order_t mtc_get_best_bid(void) { return obk_get_order(s_book, 'B'); }

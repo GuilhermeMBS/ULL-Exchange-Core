@@ -1,31 +1,50 @@
-# Variáveis de Compilação
+# Compiler Configuration
 CC = gcc
-CFLAGS = -Wall -Wextra -O3 -fPIC -Icore/include
-LDFLAGS = -shared
+CFLAGS = -Wall -Wextra -Icore/include
 
-# Destino da biblioteca
-LIB_NAME = core/libengine.so
+# Project Directory Structures
+SRC_DIR = core/src
+TEST_DIR = tests/c_tests
 
-# Busca todos os arquivos .c dentro de core/src
-SOURCES = $(wildcard core/src/*.c)
-OBJECTS = $(SOURCES:.c=.o)
+# List of all test runner binaries
+TESTERS = book_tester ledger_tester matching_tester parser_tester validator_tester
 
-# Alvo principal
-all: $(LIB_NAME)
+# Default target executed when running 'make' without arguments
+all: test
 
-# Cria a Shared Library a partir dos objetos
-$(LIB_NAME): $(OBJECTS)
-	$(CC) $(LDFLAGS) -o $@ $(OBJECTS)
-	@echo "------------------------------------------------"
-	@echo "Biblioteca $(LIB_NAME) gerada com sucesso!"
-	@echo "------------------------------------------------"
+# Individual Compilation Rules for Each Module
+book_tester: $(SRC_DIR)/errorlib.c $(SRC_DIR)/book.c $(TEST_DIR)/test_book.c
+	$(CC) $^ -o $@ $(CFLAGS)
 
-# Compila cada .c em um .o (Position Independent Code)
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+ledger_tester: $(SRC_DIR)/errorlib.c $(SRC_DIR)/ledger.c $(TEST_DIR)/test_ledger.c
+	$(CC) $^ -o $@ $(CFLAGS)
 
-# Limpeza
+matching_tester: $(SRC_DIR)/errorlib.c $(SRC_DIR)/book.c $(SRC_DIR)/ledger.c $(SRC_DIR)/matching.c $(TEST_DIR)/test_matching.c
+	$(CC) $^ -o $@ $(CFLAGS)
+
+parser_tester: $(SRC_DIR)/errorlib.c $(SRC_DIR)/parser.c $(SRC_DIR)/validator.c $(TEST_DIR)/test_parser.c
+	$(CC) $^ -o $@ $(CFLAGS)
+
+validator_tester: $(SRC_DIR)/errorlib.c $(SRC_DIR)/parser.c $(SRC_DIR)/validator.c $(TEST_DIR)/test_validator.c
+	$(CC) $^ -o $@ $(CFLAGS)
+
+# Utility target to compile all test runners without executing them
+compile: $(TESTERS)
+
+# Main target to build and run the entire validation suite in sequence
+test: compile
+	@echo "=================================================="
+	@echo "          RUNNING ALL MODULAR TEST SUITES         "
+	@echo "=================================================="
+	@./book_tester
+	@./ledger_tester
+	@./matching_tester
+	@./parser_tester
+	@./validator_tester
+	@echo "=================================================="
+	@echo "          ALL MODULES COMPLETED SUCCESSFULLY      "
+	@echo "=================================================="
+
+# Artifact cleanup target
 clean:
-	rm -f core/src/*.o $(LIB_NAME)
-
-.PHONY: all clean
+	rm -f $(TESTERS) *.exe

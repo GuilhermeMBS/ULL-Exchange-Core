@@ -17,6 +17,9 @@ INVALID_RATE = 0.1
 def start_engine():
     """Orchestrates the full exchange engine flow."""
 
+    print("============ RUNNING FULL APPLICATION ===========\n")
+
+
     # Generate market CSV
     result = generate_market(MARKET_PATH, num_orders=NUM_ORDERS, failures=INVALID_RATE)
     if result != 0:
@@ -56,6 +59,8 @@ def start_engine():
     lib.prs_free_buffer(orders)
 
     print(f"Ledger saved to: {LEDGER_PATH}")
+    print("\n============ EXECUTION COMPLETED SUCCESSFULLY ===========")
+    
     return 0
 
 
