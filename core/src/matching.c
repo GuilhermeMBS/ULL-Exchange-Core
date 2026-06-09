@@ -1,2 +1,134 @@
-#include "errorlib.h"
-#include "book.h"
+#pragma once
+
+#include "matching.h"
+#include <time.h>
+
+#define BUFFER_SIZE 4096
+
+struct obk_order_book_private_s {
+    obk_order_t asks[BUFFER_SIZE];
+    obk_order_t bids[BUFFER_SIZE];
+    int32_t     size_asks;
+    int32_t     size_bids;
+};
+
+extern ret_code_t changeOrder(obk_order_book_t* book, uint32_t qty, char side);
+
+/* esta atrapalhando a compilação:
+ *
+ * 1. obk_initialize_book() — linhas 48-49:
+ *      st->asks[i].side      = "";   // ERRADO: side é char, não char*
+ *      st->asks[i].timestamp = "";   // ERRADO: timestamp é uint32_t, não char*
+ *    Correção: substituir "" por 0 nos dois campos.
+ *
+ * 2. obk_remove_order() — linha 139:
+ *      obk_heapify(book, 0, *book_size);   // ERRADO: passa obk_order_book_t* onde espera obk_order_t*
+ *    Correção: substituir book por side_book.
+ */
+
+
+static obk_order_book_t s_book;
+static int32_t          s_trade_id = 0;
+
+
+int32_t mtc_make_bid(obk_order_t* order) {
+    if (!order) return ERR_ORD;
+
+    if (s_book.size_asks == 0)
+        return (int32_t)obk_insert_order(&s_book, order);
+
+    obk_order_t best_ask = obk_get_order(&s_book, 'A');
+
+    if (order->price < best_ask.price)
+        return (int32_t)obk_insert_order(&s_book, order);
+
+    uint32_t qty = order->quantity < best_ask.quantity
+                   ? order->quantity : best_ask.quantity;
+
+    mtc_transaction_t t = {
+        .timestamp      = (uint32_t)time(NULL),
+        .trade_id       = ++s_trade_id,
+        .buy_order_id   = (int32_t)order->order_id,
+        .sell_order_id  = (int32_t)best_ask.order_id,
+        .buy_client_id  = (int32_t)order->client_id,
+        .sell_client_id = (int32_t)best_ask.client_id,
+        .price          = best_ask.price,
+        .quantity       = (int32_t)qty,
+    };
+    (void)t;
+
+    if (order->quantity == best_ask.quantity) {
+        obk_remove_order(&s_book, 'A');
+        return 1;
+    }
+    if (order->quantity > best_ask.quantity) {
+        obk_remove_order(&s_book, 'A');
+        order->quantity -= qty;
+        int32_t r = mtc_make_bid(order);
+        return (r == 1) ? 1 : 2;
+    }
+    changeOrder(&s_book, best_ask.quantity - qty, 'A');
+    return 2;
+}
+
+
+int32_t mtc_make_sell(obk_order_t* order) {
+    if (!order) return ERR_ORD;
+
+    if (s_book.size_bids == 0)
+        return (int32_t)obk_insert_order(&s_book, order);
+
+    obk_order_t best_bid = obk_get_order(&s_book, 'B');
+
+    if (order->price > best_bid.price)
+        return (int32_t)obk_insert_order(&s_book, order);
+
+    uint32_t qty = order->quantity < best_bid.quantity
+                   ? order->quantity : best_bid.quantity;
+
+    mtc_transaction_t t = {
+        .timestamp      = (uint32_t)time(NULL),
+        .trade_id       = ++s_trade_id,
+        .buy_order_id   = (int32_t)best_bid.order_id,
+        .sell_order_id  = (int32_t)order->order_id,
+        .buy_client_id  = (int32_t)best_bid.client_id,
+        .sell_client_id = (int32_t)order->client_id,
+        .price          = best_bid.price,
+        .quantity       = (int32_t)qty,
+    };
+    (void)t;
+
+    if (order->quantity == best_bid.quantity) {
+        obk_remove_order(&s_book, 'B');
+        return 1;
+    }
+    if (order->quantity > best_bid.quantity) {
+        obk_remove_order(&s_book, 'B');
+        order->quantity -= qty;
+        int32_t r = mtc_make_sell(order);
+        return (r == 1) ? 1 : 2;
+    }
+    changeOrder(&s_book, best_bid.quantity - qty, 'B');
+    return 2;
+}
+
+
+int32_t mtc_make_trade(obk_order_t* incoming) {
+    if (!incoming) return ERR_ORD;
+    if (incoming->side == 'B') return mtc_make_bid(incoming);
+    if (incoming->side == 'A') return mtc_make_sell(incoming);
+    return ERR_ORD;
+}
+
+
+void mtc_reset(void) {
+    s_book.size_asks = 0;
+    s_book.size_bids = 0;
+    s_trade_id = 0;
+}
+
+int32_t mtc_get_ask_count(void) { return s_book.size_asks; }
+int32_t mtc_get_bid_count(void) { return s_book.size_bids; }
+
+obk_order_t mtc_get_best_ask(void) { return obk_get_order(&s_book, 'A'); }
+obk_order_t mtc_get_best_bid(void) { return obk_get_order(&s_book, 'B'); }

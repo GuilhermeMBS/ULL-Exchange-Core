@@ -1,35 +1,30 @@
 // ledger.c - Implementação do registro de transações em arquivo binário (ledger.bin).
 
 #include <stdio.h>
-
 #include "ledger.h"
 
-/**
- * Grava todas as transações do buffer no arquivo "ledger.bin".
- *
- * @param transactions  Ponteiro para o Buffer com as transações
- * @return              0 se sucesso, -3 se entrada inválida ou falha de escrita
- */
+static const char* LEDGER_PATH = "ledger.bin";
 
-ret_code_t ldg_register_trades(Buffer* transactions) {
-     /* Valida se o buffer e seus dados são válidos */
-    if (!transactions || !transactions->data || transactions->count <= 0)
-        return ERR_MEM;
+int32_t ldg_init_ledger(const char* bin_path) {
+    FILE* f = fopen(bin_path, "wb");
+    if (!f) return -1;
+    fclose(f);
+    return 0;
+}
 
-    /* Abre o arquivo binário para escrita */
-    FILE* f = fopen("data/ledger.bin", "wb");
-    if (!f) return ERR_MEM;
+int32_t ldg_register_trade(mtc_transaction_t* t) {
+    /* Valida se o ponteiro é válido */
+    if (!t) return -3;
 
-    /* Grava todas as transações de uma vez */
-    size_t written = fwrite(transactions->data,
-                            sizeof(mtc_transaction_t),
-                            transactions->count,
-                            f);
+    /* Abre o arquivo em modo append para não sobrescrever */
+    FILE* f = fopen(LEDGER_PATH, "ab");
+    if (!f) return -3;
+
+    /* Grava a transação */
+    size_t written = fwrite(t, sizeof(mtc_transaction_t), 1, f);
     fclose(f);
 
-    /* Verifica se todas as transções foram gravadas */
-    if (written != (size_t)transactions->count)
-        return ERR_MEM;
+    if (written != 1) return -3;
 
     return ERR_NONE;
 }
