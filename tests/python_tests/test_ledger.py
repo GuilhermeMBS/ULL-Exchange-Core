@@ -1,12 +1,12 @@
 """
-verify_ledger.py — Verificador de integridade do ledger.bin
+test_ledger.py — Verificador de integridade do ledger.bin
 
 Cruza cada transação registrada no ledger com as ordens originais do CSV
 e reporta inconsistências encontradas.
 
 Uso:
-    python3 scripts/verify_ledger.py
-    python3 scripts/verify_ledger.py --csv data/market.csv --ledger data/ledger.bin
+    python3 tests/python_tests/test_ledger.py
+    python3 tests/python_tests/test_ledger.py --csv data/market.csv --ledger data/ledger.bin
 """
 
 import csv

@@ -91,6 +91,10 @@ def test_correct_header():
     print("test_correct_header: OK")
 
 if __name__ == "__main__":
+    print("=" * 60)
+    print("  MARKET GENERATION TEST")
+    print("=" * 60)
+
     test_returns_zero_on_success()
     test_returns_error_on_invalid_path()
     test_file_is_created()
@@ -101,4 +105,7 @@ if __name__ == "__main__":
     test_invalid_orders_have_bad_price_or_qty()
     test_valid_orders_have_positive_price_and_qty()
     test_correct_header()
-    print("\nAll market tests passed!")
+
+    print("=" * 60)
+    print("\nALL MARKET TESTS PASSED!")
+    print("=" * 60)

@@ -1,4 +1,4 @@
-#include "errorlib.h"
+#include "retcodes.h"
 #include "book.h"
 
 #include <stdio.h>
@@ -36,7 +36,7 @@ ret_code_t obk_initialize_book(obk_book_pt* book) {
         new_book->asks[i].quantity    = new_book->bids[i].quantity  = 0;
         new_book->asks[i].side        = new_book->bids[i].side      = '\0';
         new_book->asks[i].timestamp   = new_book->bids[i].timestamp = 0;
-        new_book->asks[i].is_valid   = new_book->bids[i].is_valid = false;
+        new_book->asks[i].is_valid    = new_book->bids[i].is_valid  = false;
     }
     *book = new_book;
 

@@ -4,9 +4,11 @@
 
 
 typedef enum {
-    ERR_NONE = 0,
-    ERR_ORD = -1,
-    ERR_MEM = -3
+    PARC_MATCH  = 2,
+    TOT_MATCH   = 1,
+    ERR_NONE    = 0,
+    ERR_ORD     = -1,
+    ERR_MEM     = -3
 } ret_code_t;
 
 

@@ -6,12 +6,12 @@ import ctypes
 MARKET_PATH  = "data/market.csv"
 LEDGER_PATH  = "data/ledger.bin"
 NUM_ORDERS   = 1000
-INVALID_RATE = 0.1
+INVALID_RATE = 0.05
 
 def start_engine():
     """Orchestrates the full exchange engine flow."""
 
-    print("============ RUNNING FULL APPLICATION ===========\n")
+    print("\n============ RUNNING FULL APPLICATION ===========\n")
 
 
     # Generate market CSV

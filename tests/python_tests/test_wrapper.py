@@ -128,6 +128,10 @@ def test_matching_partial_match(lib):
 # ── Run ───────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    print("=" * 60)
+    print("  ENGINE WRAPPER TESTS")
+    print("=" * 60)
+
     lib = test_engine_loads()
 
     test_ledger_init(lib)
@@ -144,4 +148,6 @@ if __name__ == "__main__":
     test_matching_partial_match(lib)
 
     cleanup()
-    print("\nAll wrapper tests passed!")
+    print("=" * 60)
+    print("\nALL WRAPPER TESTS PASSED!")
+    print("=" * 60)

@@ -2,14 +2,17 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
-#include "errorlib.h"
+#include "retcodes.h"
 #include "book.h"
 
+
 /**
- * @brief Valida todas as ordens do buffer, marcando como inválidas as que violam as regras.
- * @param buffer Array de ordens a ser validado.
- * @param count Número de ordens no buffer.
- * @note Define order_id como -1 nas ordens inválidas. Regras: preço ou quantidade <= 0, ou side diferente de 'A' ou 'B'.
+ * @brief Validates an individual order passed by value from the parser.
+ * @param order Copy of the order data structure to be evaluated.
+ * @param out_is_valid Pointer to a boolean that receives true if the order is valid, or false if it violates rules.
+ * @return ERR_NONE on success, or ERR_ORD if the output pointer argument is invalid.
+ * @note Rules: price or quantity <= 0, or side different from 'A' or 'B'.
  */
-void vld_validate_order(obk_order_t* buffer, int32_t count);
+ret_code_t vld_validate_order(obk_order_t order, bool *out_is_valid);

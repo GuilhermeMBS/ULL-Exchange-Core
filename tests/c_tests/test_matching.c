@@ -1,21 +1,34 @@
 #include <stdio.h>
 #include <assert.h>
+#include <stdint.h>
+#include <stdlib.h>
 
+#include "retcodes.h"
+#include "book.h"
+#include "parser.h"
 #include "matching.h"
+
+
+static void create_test_csv(const char *filename, const char *content) {
+    FILE *fp = fopen(filename, "w");
+    assert(fp != NULL);
+
+    fputs(content, fp);
+
+    fclose(fp);
+}
 
 
 // 1. Null pointer must be rejected without touching internal state
 void test_null_order_rejection() {
     printf("[TEST] Requirement 1: Null Order Rejection...\n");
 
-    mtc_reset();
+    int32_t total_trades = 0;
+    ret_code_t code;
 
-    assert(mtc_make_trade(NULL) == ERR_ORD);
-    assert(mtc_make_bid(NULL)   == ERR_ORD);
-    assert(mtc_make_sell(NULL)  == ERR_ORD);
-
-    assert(mtc_get_ask_count() == 0);
-    assert(mtc_get_bid_count() == 0);
+    /* Verifies that the matching engine interface safely rejects invalid context handles */
+    code = mtc_process_matching(NULL, NULL, 0, &total_trades);
+    assert(code == ERR_ORD);
 
     printf("[PASS] Null rejection verified — internal state unchanged.\n\n");
 }
@@ -25,13 +38,29 @@ void test_null_order_rejection() {
 void test_invalid_side_rejection() {
     printf("[TEST] Requirement 2: Invalid Side Rejection...\n");
 
-    mtc_reset();
+    create_test_csv(
+        "bad_side.csv",
+        "timestamp,order_id,client_id,quantity,price,symbol,side\n"
+        "1000,1,10,100,50.0,PETR4,X\n"
+    );
 
-    obk_order_t bad = { .order_id = 1, .price = 50.0, .quantity = 100, .side = 'X', .timestamp = 1 };
-    assert(mtc_make_trade(&bad) == ERR_ORD);
+    int32_t total_orders = 0;
+    int32_t total_trades = 0;
+    prs_handle_pt prs_handle = NULL;
+    mtc_handle_pt mtc_handle = NULL;
 
-    assert(mtc_get_ask_count() == 0);
-    assert(mtc_get_bid_count() == 0);
+    assert(prs_create_orders("bad_side.csv", &prs_handle, &total_orders) == ERR_NONE);
+    assert(mtc_create_engine(&mtc_handle) == ERR_NONE);
+
+    assert(mtc_process_matching(mtc_handle, prs_handle, total_orders, &total_trades) == ERR_NONE);
+    assert(total_trades == 0);
+
+    assert(mtc_get_ask_count(mtc_handle) == 0);
+    assert(mtc_get_bid_count(mtc_handle) == 0);
+
+    prs_free_buffer(prs_handle);
+    mtc_clear_engine(&mtc_handle);
+    remove("bad_side.csv");
 
     printf("[PASS] Invalid side rejected — book untouched.\n\n");
 }
@@ -41,23 +70,37 @@ void test_invalid_side_rejection() {
 void test_no_match_empty_book() {
     printf("[TEST] Requirement 3: No Match on Empty Opposite Side...\n");
 
-    mtc_reset();
+    create_test_csv(
+        "empty_opp.csv",
+        "timestamp,order_id,client_id,quantity,price,symbol,side\n"
+        "1000,10,1,200,80.0,PETR4,B\n"
+        "1001,11,2,200,80.0,PETR4,A\n"
+    );
 
-    // Bid arrives — ask book is empty
-    obk_order_t bid = { .order_id = 10, .price = 80.0, .quantity = 200, .side = 'B', .timestamp = 1 };
-    assert(mtc_make_bid(&bid) == ERR_NONE);
-    assert(mtc_get_bid_count() == 1);
-    assert(mtc_get_ask_count() == 0);
+    int32_t total_orders = 0;
+    int32_t total_trades = 0;
+    prs_handle_pt prs_handle = NULL;
+    mtc_handle_pt mtc_handle = NULL;
 
-    mtc_reset();
+    assert(prs_create_orders("empty_opp.csv", &prs_handle, &total_orders) == ERR_NONE);
+    assert(mtc_create_engine(&mtc_handle) == ERR_NONE);
 
-    // Ask arrives — bid book is empty
-    obk_order_t ask = { .order_id = 11, .price = 80.0, .quantity = 200, .side = 'A', .timestamp = 2 };
-    assert(mtc_make_sell(&ask) == ERR_NONE);
-    assert(mtc_get_ask_count() == 1);
-    assert(mtc_get_bid_count() == 0);
+    /* First order (Bid) arrives — ask book is empty, so it enters the book */
+    assert(mtc_process_matching(mtc_handle, prs_handle, 1, &total_trades) == ERR_NONE);
+    assert(total_trades == 0);
+    assert(mtc_get_bid_count(mtc_handle) == 1);
+    assert(mtc_get_ask_count(mtc_handle) == 0);
 
-    mtc_reset();
+    /* Second order (Ask) arrives — matching the price and quantities perfectly executing a trade */
+    assert(mtc_process_matching(mtc_handle, prs_handle, total_orders, &total_trades) == ERR_NONE);
+    assert(total_trades == 1);
+    assert(mtc_get_bid_count(mtc_handle) == 0);
+    assert(mtc_get_ask_count(mtc_handle) == 0);
+
+    prs_free_buffer(prs_handle);
+    mtc_clear_engine(&mtc_handle);
+    remove("empty_opp.csv");
+
     printf("[PASS] Orders inserted into book when opposite side is empty.\n\n");
 }
 
@@ -66,31 +109,31 @@ void test_no_match_empty_book() {
 void test_no_match_price_cross_miss() {
     printf("[TEST] Requirement 4: No Match on Price Cross Miss...\n");
 
-    mtc_reset();
+    create_test_csv(
+        "cross_miss.csv",
+        "timestamp,order_id,client_id,quantity,price,symbol,side\n"
+        "1000,20,1,100,100.0,PETR4,A\n"
+        "1001,21,2,100,90.0,PETR4,B\n"
+    );
 
-    // Resting ask at 100.0 — incoming bid at 90.0 (below ask, no cross)
-    obk_order_t ask = { .order_id = 20, .price = 100.0, .quantity = 100, .side = 'A', .timestamp = 1 };
-    assert(mtc_make_sell(&ask) == ERR_NONE);
+    int32_t total_orders = 0;
+    int32_t total_trades = 0;
+    prs_handle_pt prs_handle = NULL;
+    mtc_handle_pt mtc_handle = NULL;
 
-    obk_order_t bid = { .order_id = 21, .price = 90.0, .quantity = 100, .side = 'B', .timestamp = 2 };
-    assert(mtc_make_bid(&bid) == ERR_NONE);
+    assert(prs_create_orders("cross_miss.csv", &prs_handle, &total_orders) == ERR_NONE);
+    assert(mtc_create_engine(&mtc_handle) == ERR_NONE);
 
-    assert(mtc_get_ask_count() == 1);
-    assert(mtc_get_bid_count() == 1);
+    /* Resting ask at 100.0 — incoming bid at 90.0 (below ask, no cross) */
+    assert(mtc_process_matching(mtc_handle, prs_handle, total_orders, &total_trades) == ERR_NONE);
+    assert(total_trades == 0);
+    assert(mtc_get_ask_count(mtc_handle) == 1);
+    assert(mtc_get_bid_count(mtc_handle) == 1);
 
-    mtc_reset();
+    prs_free_buffer(prs_handle);
+    mtc_clear_engine(&mtc_handle);
+    remove("cross_miss.csv");
 
-    // Resting bid at 80.0 — incoming ask at 90.0 (above bid, no cross)
-    obk_order_t bid2 = { .order_id = 22, .price = 80.0, .quantity = 100, .side = 'B', .timestamp = 3 };
-    assert(mtc_make_bid(&bid2) == ERR_NONE);
-
-    obk_order_t ask2 = { .order_id = 23, .price = 90.0, .quantity = 100, .side = 'A', .timestamp = 4 };
-    assert(mtc_make_sell(&ask2) == ERR_NONE);
-
-    assert(mtc_get_bid_count() == 1);
-    assert(mtc_get_ask_count() == 1);
-
-    mtc_reset();
     printf("[PASS] Orders inserted into book when price does not cross.\n\n");
 }
 
@@ -99,21 +142,38 @@ void test_no_match_price_cross_miss() {
 void test_full_match_equal_quantities() {
     printf("[TEST] Requirement 5: Full Match on Equal Quantities...\n");
 
-    mtc_reset();
+    create_test_csv(
+        "equal_qty.csv",
+        "timestamp,order_id,client_id,quantity,price,symbol,side\n"
+        "1000,30,1,200,100.0,PETR4,A\n"
+        "1001,31,2,200,100.0,PETR4,B\n"
+    );
 
-    // Place a resting ask
-    obk_order_t ask = { .order_id = 30, .price = 100.0, .quantity = 200, .side = 'A', .client_id = 1, .timestamp = 1 };
-    assert(mtc_make_sell(&ask) == ERR_NONE);
-    assert(mtc_get_ask_count() == 1);
+    int32_t total_orders = 0;
+    int32_t total_trades = 0;
+    prs_handle_pt prs_handle = NULL;
+    mtc_handle_pt mtc_handle = NULL;
+    mtc_transaction_t trade_record;
 
-    // Incoming bid matches exactly
-    obk_order_t bid = { .order_id = 31, .price = 100.0, .quantity = 200, .side = 'B', .client_id = 2, .timestamp = 2 };
-    assert(mtc_make_bid(&bid) == 1);
+    assert(prs_create_orders("equal_qty.csv", &prs_handle, &total_orders) == ERR_NONE);
+    assert(mtc_create_engine(&mtc_handle) == ERR_NONE);
 
-    assert(mtc_get_ask_count() == 0);
-    assert(mtc_get_bid_count() == 0);
+    assert(mtc_process_matching(mtc_handle, prs_handle, total_orders, &total_trades) == ERR_NONE);
+    assert(total_trades == 1);
 
-    mtc_reset();
+    /* Verifies that the internal trades buffer captures tracking parity fields accurately */
+    assert(mtc_get_trade_by_index(mtc_handle, 0, &trade_record) == ERR_NONE);
+    assert(trade_record.buy_order_id == 31);
+    assert(trade_record.sell_order_id == 30);
+    assert(trade_record.quantity == 200);
+
+    assert(mtc_get_ask_count(mtc_handle) == 0);
+    assert(mtc_get_bid_count(mtc_handle) == 0);
+
+    prs_free_buffer(prs_handle);
+    mtc_clear_engine(&mtc_handle);
+    remove("equal_qty.csv");
+
     printf("[PASS] Full match on equal quantities — both sides cleared.\n\n");
 }
 
@@ -122,21 +182,35 @@ void test_full_match_equal_quantities() {
 void test_partial_match_bid_deficit() {
     printf("[TEST] Requirement 6: Partial Match — Bid Deficit...\n");
 
-    mtc_reset();
+    create_test_csv(
+        "bid_deficit.csv",
+        "timestamp,order_id,client_id,quantity,price,symbol,side\n"
+        "1000,40,1,500,50.0,PETR4,A\n"
+        "1001,41,2,200,50.0,PETR4,B\n"
+    );
 
-    obk_order_t ask = { .order_id = 40, .price = 50.0, .quantity = 500, .side = 'A', .client_id = 1, .timestamp = 1 };
-    assert(mtc_make_sell(&ask) == ERR_NONE);
+    int32_t total_orders = 0;
+    int32_t total_trades = 0;
+    prs_handle_pt prs_handle = NULL;
+    mtc_handle_pt mtc_handle = NULL;
+    obk_order_t remaining_ask;
 
-    obk_order_t bid = { .order_id = 41, .price = 50.0, .quantity = 200, .side = 'B', .client_id = 2, .timestamp = 2 };
-    assert(mtc_make_bid(&bid) == 2);
+    assert(prs_create_orders("bid_deficit.csv", &prs_handle, &total_orders) == ERR_NONE);
+    assert(mtc_create_engine(&mtc_handle) == ERR_NONE);
 
-    assert(mtc_get_ask_count() == 1);
-    assert(mtc_get_bid_count() == 0);
+    assert(mtc_process_matching(mtc_handle, prs_handle, total_orders, &total_trades) == ERR_NONE);
+    assert(total_trades == 1);
 
-    obk_order_t remaining_ask = mtc_get_best_ask();
+    assert(mtc_get_ask_count(mtc_handle) == 1);
+    assert(mtc_get_bid_count(mtc_handle) == 0);
+
+    remaining_ask = mtc_get_best_ask(mtc_handle);
     assert(remaining_ask.quantity == 300);
 
-    mtc_reset();
+    prs_free_buffer(prs_handle);
+    mtc_clear_engine(&mtc_handle);
+    remove("bid_deficit.csv");
+
     printf("[PASS] Partial match bid deficit — ask reduced and kept in book.\n\n");
 }
 
@@ -145,21 +219,35 @@ void test_partial_match_bid_deficit() {
 void test_partial_match_ask_deficit() {
     printf("[TEST] Requirement 7: Partial Match — Ask Deficit...\n");
 
-    mtc_reset();
+    create_test_csv(
+        "ask_deficit.csv",
+        "timestamp,order_id,client_id,quantity,price,symbol,side\n"
+        "1000,50,1,500,80.0,PETR4,B\n"
+        "1001,51,2,200,80.0,PETR4,A\n"
+    );
 
-    obk_order_t bid = { .order_id = 50, .price = 80.0, .quantity = 500, .side = 'B', .client_id = 1, .timestamp = 1 };
-    assert(mtc_make_bid(&bid) == ERR_NONE);
+    int32_t total_orders = 0;
+    int32_t total_trades = 0;
+    prs_handle_pt prs_handle = NULL;
+    mtc_handle_pt mtc_handle = NULL;
+    obk_order_t remaining_bid;
 
-    obk_order_t ask = { .order_id = 51, .price = 80.0, .quantity = 200, .side = 'A', .client_id = 2, .timestamp = 2 };
-    assert(mtc_make_sell(&ask) == 2);
+    assert(prs_create_orders("ask_deficit.csv", &prs_handle, &total_orders) == ERR_NONE);
+    assert(mtc_create_engine(&mtc_handle) == ERR_NONE);
 
-    assert(mtc_get_bid_count() == 1);
-    assert(mtc_get_ask_count() == 0);
+    assert(mtc_process_matching(mtc_handle, prs_handle, total_orders, &total_trades) == ERR_NONE);
+    assert(total_trades == 1);
 
-    obk_order_t remaining_bid = mtc_get_best_bid();
+    assert(mtc_get_bid_count(mtc_handle) == 1);
+    assert(mtc_get_ask_count(mtc_handle) == 0);
+
+    remaining_bid = mtc_get_best_bid(mtc_handle);
     assert(remaining_bid.quantity == 300);
 
-    mtc_reset();
+    prs_free_buffer(prs_handle);
+    mtc_clear_engine(&mtc_handle);
+    remove("ask_deficit.csv");
+
     printf("[PASS] Partial match ask deficit — bid reduced and kept in book.\n\n");
 }
 
@@ -168,26 +256,34 @@ void test_partial_match_ask_deficit() {
 void test_recursive_full_match_bid_surplus() {
     printf("[TEST] Requirement 8: Recursive Full Match — Bid Surplus...\n");
 
-    mtc_reset();
+    create_test_csv(
+        "surplus.csv",
+        "timestamp,order_id,client_id,quantity,price,symbol,side\n"
+        "1000,60,1,100,40.0,PETR4,A\n"
+        "1001,61,1,100,40.0,PETR4,A\n"
+        "1002,62,1,100,40.0,PETR4,A\n"
+        "1003,63,2,300,40.0,PETR4,B\n"
+    );
 
-    // Insert 3 resting asks at the same price, 100 units each
-    obk_order_t ask1 = { .order_id = 60, .price = 40.0, .quantity = 100, .side = 'A', .client_id = 1, .timestamp = 1 };
-    obk_order_t ask2 = { .order_id = 61, .price = 40.0, .quantity = 100, .side = 'A', .client_id = 1, .timestamp = 2 };
-    obk_order_t ask3 = { .order_id = 62, .price = 40.0, .quantity = 100, .side = 'A', .client_id = 1, .timestamp = 3 };
+    int32_t total_orders = 0;
+    int32_t total_trades = 0;
+    prs_handle_pt prs_handle = NULL;
+    mtc_handle_pt mtc_handle = NULL;
 
-    assert(mtc_make_sell(&ask1) == ERR_NONE);
-    assert(mtc_make_sell(&ask2) == ERR_NONE);
-    assert(mtc_make_sell(&ask3) == ERR_NONE);
-    assert(mtc_get_ask_count() == 3);
+    assert(prs_create_orders("surplus.csv", &prs_handle, &total_orders) == ERR_NONE);
+    assert(mtc_create_engine(&mtc_handle) == ERR_NONE);
 
-    // Bid for the entire 300 units — must consume all three asks recursively
-    obk_order_t bid = { .order_id = 63, .price = 40.0, .quantity = 300, .side = 'B', .client_id = 2, .timestamp = 4 };
-    assert(mtc_make_bid(&bid) == 1);
+    assert(mtc_process_matching(mtc_handle, prs_handle, total_orders, &total_trades) == ERR_NONE);
+    /* 3 separate matches committed internally onto the trades stack buffer structure */
+    assert(total_trades == 3);
 
-    assert(mtc_get_ask_count() == 0);
-    assert(mtc_get_bid_count() == 0);
+    assert(mtc_get_ask_count(mtc_handle) == 0);
+    assert(mtc_get_bid_count(mtc_handle) == 0);
 
-    mtc_reset();
+    prs_free_buffer(prs_handle);
+    mtc_clear_engine(&mtc_handle);
+    remove("surplus.csv");
+
     printf("[PASS] Recursive full match — bid surplus consumed all resting asks.\n\n");
 }
 
@@ -196,23 +292,30 @@ void test_recursive_full_match_bid_surplus() {
 void test_trade_routing_via_make_trade() {
     printf("[TEST] Requirement 9: Routing via mtc_make_trade...\n");
 
-    mtc_reset();
+    create_test_csv(
+        "routing.csv",
+        "timestamp,order_id,client_id,quantity,price,symbol,side\n"
+        "1000,70,1,150,60.0,PETR4,B\n"
+        "1001,71,2,150,65.0,PETR4,A\n"
+    );
 
-    // Bid side routing: book is empty, order must land in bid book
-    obk_order_t bid = { .order_id = 70, .price = 60.0, .quantity = 150, .side = 'B', .client_id = 1, .timestamp = 1, .is_valid = true };
-    assert(mtc_make_trade(&bid) == ERR_NONE);
-    assert(mtc_get_bid_count() == 1);
-    assert(mtc_get_ask_count() == 0);
+    int32_t total_orders = 0;
+    int32_t total_trades = 0;
+    prs_handle_pt prs_handle = NULL;
+    mtc_handle_pt mtc_handle = NULL;
 
-    mtc_reset();
+    assert(prs_create_orders("routing.csv", &prs_handle, &total_orders) == ERR_NONE);
+    assert(mtc_create_engine(&mtc_handle) == ERR_NONE);
 
-    // Ask side routing: book is empty, order must land in ask book
-    obk_order_t ask = { .order_id = 71, .price = 60.0, .quantity = 150, .side = 'A', .client_id = 1, .timestamp = 2, .is_valid = true };
-    assert(mtc_make_trade(&ask) == ERR_NONE);
-    assert(mtc_get_ask_count() == 1);
-    assert(mtc_get_bid_count() == 0);
+    assert(mtc_process_matching(mtc_handle, prs_handle, total_orders, &total_trades) == ERR_NONE);
+    assert(total_trades == 0);
+    assert(mtc_get_bid_count(mtc_handle) == 1);
+    assert(mtc_get_ask_count(mtc_handle) == 1);
 
-    mtc_reset();
+    prs_free_buffer(prs_handle);
+    mtc_clear_engine(&mtc_handle);
+    remove("routing.csv");
+
     printf("[PASS] Trade routing by side character verified.\n\n");
 }
 

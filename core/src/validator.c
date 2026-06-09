@@ -1,32 +1,28 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "errorlib.h"
+#include "retcodes.h"
 #include "book.h"
 #include "validator.h"
 
-void vld_validate_order(obk_order_t *buffer, int32_t count) {
-    if (!buffer || count <= 0) return;
 
-    for (int32_t i = 0; i < count; i++) {
-        obk_order_t *o = &buffer[i];
+ret_code_t vld_validate_order(obk_order_t order, bool *out_is_valid) {
+    if (!out_is_valid) return ERR_ORD;
 
-        if (!o->is_valid) {
-            o->order_id = (uint32_t)-1;
-            continue;
-        }
-
-        bool valid = true;
-
-        if (o->price <= 0.0) valid = false;
-
-        if (valid && o->quantity < 1) valid = false;
-
-        if (valid && o->side != 'A' && o->side != 'B') valid = false;
-
-        if (!valid) {
-            o->is_valid = false;
-            o->order_id = (uint32_t)-1;
-        }
+    if (!order.is_valid) {
+        *out_is_valid = false;
+        return ERR_NONE;
     }
+
+    bool valid = true;
+
+    if (order.price <= 0.0) valid = false;
+
+    if (valid && order.quantity < 1) valid = false;
+
+    if (valid && order.side != 'A' && order.side != 'B') valid = false;
+
+    *out_is_valid = valid;
+
+    return ERR_NONE;
 }

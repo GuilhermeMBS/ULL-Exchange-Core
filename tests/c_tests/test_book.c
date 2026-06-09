@@ -4,7 +4,7 @@
 #include <assert.h>
 
 #include "book.h"
-#include "errorlib.h"
+#include "retcodes.h"
 
 
 #define BUFFER_SIZE 4096

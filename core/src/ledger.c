@@ -1,29 +1,28 @@
 #include <stdio.h>
 #include <string.h>
+
 #include "ledger.h"
+#include "matching.h"
 
-static char ledger_path[256] = "data/ledger.bin";
 
-ret_code_t ldg_init_ledger(const char* bin_path) {
+ret_code_t ldg_save_ledger(const char* bin_path, mtc_handle_pt mtc_handle, int32_t total_trades) {
+    if (!bin_path || !mtc_handle) return ERR_ORD;
+
     FILE* f = fopen(bin_path, "wb");
     if (!f) return ERR_ORD;
 
-    strncpy(ledger_path, bin_path, sizeof(ledger_path) - 1);
+    for (int32_t i = 0; i < total_trades; i++) {
+        mtc_transaction_t current_trade;
+        
+        if (mtc_get_trade_by_index(mtc_handle, i, &current_trade) != ERR_NONE) continue;
 
+        if (fwrite(&current_trade, sizeof(mtc_transaction_t), 1, f) != 1) {
+            fclose(f);
+            return ERR_MEM;
+        }
+    }
+
+    fflush(f);
     fclose(f);
-    return ERR_NONE;
-}
-
-ret_code_t ldg_register_trade(mtc_transaction_t* t) {
-    if (!t) return ERR_MEM;
-
-    FILE* f = fopen(ledger_path, "ab");
-    if (!f) return ERR_MEM;
-
-    size_t written = fwrite(t, sizeof(mtc_transaction_t), 1, f);
-    fclose(f);
-
-    if (written != 1) return ERR_MEM;
-
     return ERR_NONE;
 }

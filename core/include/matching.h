@@ -1,7 +1,8 @@
 #pragma once
 
-#include "errorlib.h"
+#include "retcodes.h"
 #include "book.h"
+#include "parser.h"
 
 
 typedef struct {
@@ -16,33 +17,48 @@ typedef struct {
 } mtc_transaction_t;
 
 
-/**
- * @brief Tenta casar a ordem recebida com o livro atual.
- * @param incoming Ponteiro para a ordem recebida.
- * @return 0 (sem casamento — enfileirada no livro), 1 (casamento total), 2 (casamento parcial).
- *         ERR_ORD em caso de ordem inválida.
- */
-ret_code_t mtc_make_trade(obk_order_t* incoming);
+typedef struct mtc_instance_private_s* mtc_handle_pt; // Opaque pointer
 
 
 /**
- * @brief Processa uma ordem de compra no livro.
- * @param order Ponteiro para a ordem a ser processada.
- * @return 0 em caso de sucesso, ERR_ORD em falha de comunicação com o livro.
+ * @brief Allocates and initializes a new matching engine instance.
+ * @param handle Double pointer targeted to receive the address of the allocated engine instance.
+ * @return ERR_NONE on success, or ERR_MEM if heap allocation fails.
  */
-ret_code_t mtc_make_bid(obk_order_t* order);
+ret_code_t mtc_create_engine(mtc_handle_pt* handle);
+
 
 /**
- * @brief Processa uma ordem de venda no livro.
- * @param order Ponteiro para a ordem a ser processada.
- * @return 0 em caso de sucesso, ERR_ORD em falha de comunicação com o livro.
+ * @brief Processes all orders from the parser sequentially by using its opaque handle interface.
+ * @param handle Opaque handle targeting the specific matching engine instance.
+ * @param prs_handle Opaque handle pointing to the populated parser memory container.
+ * @param total_orders The total number of processed entries residing inside the parser buffer.
+ * @param out_total_trades Pointer updated with the final count of executed transactions.
+ * @return ERR_NONE on success, or ERR_ORD if an engine error or invalid status is encountered.
  */
-ret_code_t mtc_make_sell(obk_order_t* order);
+ret_code_t mtc_process_matching(mtc_handle_pt handle, prs_handle_pt prs_handle, int32_t total_orders, int32_t* out_total_trades);
 
 
-/** @brief Introspecção — reinicia o estado e inspeciona o livro interno (suporte a testes). */
-void        mtc_reset(void);
-ret_code_t  mtc_get_ask_count(void);
-ret_code_t  mtc_get_bid_count(void);
-obk_order_t mtc_get_best_ask(void);
-obk_order_t mtc_get_best_bid(void);
+/**
+ * @brief Safely fetches an executed trade record from the engine storage array by its index.
+ * @param handle Opaque handle targeting the matching engine instance.
+ * @param idx The targeted transaction array index position.
+ * @param out_trade Destination pointer where the transaction data will be copied.
+ * @return ERR_NONE on success, or ERR_ORD if the index is out of bounds or parameters are invalid.
+ */
+ret_code_t mtc_get_trade_by_index(mtc_handle_pt handle, int32_t idx, mtc_transaction_t* out_trade);
+
+
+/**
+ * @brief Frees the matching engine instance, its inner order book, and transaction records.
+ * @param handle Double pointer targeting the instance handle to clear and nullify.
+ * @return ERR_NONE on success, or ERR_MEM if the instance pointer is already invalid.
+ */
+ret_code_t mtc_clear_engine(mtc_handle_pt* handle);
+
+
+/** @brief Introspecção — support helper tools allowing introspection into the internal book instance state. */
+ret_code_t  mtc_get_ask_count(mtc_handle_pt handle);
+ret_code_t  mtc_get_bid_count(mtc_handle_pt handle);
+obk_order_t mtc_get_best_ask(mtc_handle_pt handle);
+obk_order_t mtc_get_best_bid(mtc_handle_pt handle);
