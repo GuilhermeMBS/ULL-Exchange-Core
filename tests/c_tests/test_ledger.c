@@ -7,28 +7,28 @@ cmd: gcc core/src/errorlib.c core/src/ledger.c tests/c_tests/test_ledger.c -o le
 
 #include "ledger.h"
 
-static const char* TEST_PATH = "test_ledger_temp.bin";
+static const char* TEST_PATH = "data/test_ledger_temp.bin";
 
 void cleanup() {
     remove(TEST_PATH);
 }
 
 void test_init_caminho_valido() {
-    int32_t result = ldg_init_ledger(TEST_PATH);
-    assert(result == 0);
+    ret_code_t result = ldg_init_ledger(TEST_PATH);
+    assert(result == ERR_NONE);
     cleanup();
     printf("test_init_caminho_valido: OK\n");
 }
 
 void test_init_caminho_invalido() {
-    int32_t result = ldg_init_ledger("/caminho/invalido/ledger.bin");
-    assert(result == -1);
+    ret_code_t result = ldg_init_ledger("/caminho/invalido/ledger.bin");
+    assert(result == ERR_ORD);
     printf("test_init_caminho_invalido: OK\n");
 }
 
 void test_register_ponteiro_nulo() {
-    int32_t result = ldg_register_trade(NULL);
-    assert(result == -3);
+    ret_code_t result = ldg_register_trade(NULL);
+    assert(result == ERR_MEM);
     printf("test_register_ponteiro_nulo: OK\n");
 }
 
@@ -46,8 +46,8 @@ void test_register_transacao_valida() {
         .quantity       = 5
     };
 
-    int32_t result = ldg_register_trade(&t);
-    assert(result == 0);
+    ret_code_t result = ldg_register_trade(&t);
+    assert(result == ERR_NONE);
     cleanup();
     printf("test_register_transacao_valida: OK\n");
 }
@@ -67,8 +67,8 @@ void test_100_transacoes_em_ordem() {
             .quantity       = 10 + i
         };
 
-        int32_t result = ldg_register_trade(&t);
-        assert(result == 0);
+        ret_code_t result = ldg_register_trade(&t);
+        assert(result == ERR_NONE);
     }
 
     cleanup();
