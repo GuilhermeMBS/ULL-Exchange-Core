@@ -1,75 +1,91 @@
+// test_ledger.c - Testes do módulo Ledger
+
 #include <stdio.h>
 #include <assert.h>
-#include <string.h>
 
 #include "ledger.h"
 
-/* Testa buffer nulo — deve retornar -3 (erro de memória) */
-void test_null_buffer() {
-    int result = registerTrades(NULL);
-    assert(result == -3);
-    printf("test_null_buffer: OK\n");
+static const char* TEST_PATH = "test_ledger_temp.bin";
+
+void cleanup() {
+    remove(TEST_PATH);
 }
 
-/* Testa buffer com data nulo — deve retornar -3 */
-void test_null_data() {
-    Buffer b = { .data = NULL, .count = 1 };
-    int result = registerTrades(&b);
-    assert(result == -3);
-    printf("test_null_data: OK\n");
+void test_init_caminho_valido() {
+    int32_t result = ldg_init_ledger(TEST_PATH);
+    assert(result == 0);
+    cleanup();
+    printf("test_init_caminho_valido: OK\n");
 }
 
-/* Testa buffer com count zero — deve retornar -3 */
-void test_zero_count() {
-    mtc_transaction_t t = {0};
-    Buffer b = { .data = &t, .count = 0 };
-    int result = registerTrades(&b);
-    assert(result == -3);
-    printf("test_zero_count: OK\n");
+void test_init_caminho_invalido() {
+    int32_t result = ldg_init_ledger("/caminho/invalido/ledger.bin");
+    assert(result == -1);
+    printf("test_init_caminho_invalido: OK\n");
 }
 
-/*
- * Caso de Teste do Documento:
- * Salvar 100 transações completas na ordem — deve retornar 0
- */
-void test_100_transactions_in_order() {
-    mtc_transaction_t transactions[100];
+void test_register_ponteiro_nulo() {
+    int32_t result = ldg_register_trade(NULL);
+    assert(result == -3);
+    printf("test_register_ponteiro_nulo: OK\n");
+}
+
+void test_register_transacao_valida() {
+    ldg_init_ledger(TEST_PATH);
+
+    mtc_transaction_t t = {
+        .timestamp      = 1000,
+        .trade_id       = 1,
+        .buy_order_id   = 10,
+        .sell_order_id  = 20,
+        .buy_client_id  = 101,
+        .sell_client_id = 102,
+        .price          = 50.0,
+        .quantity       = 5
+    };
+
+    int32_t result = ldg_register_trade(&t);
+    assert(result == 0);
+    cleanup();
+    printf("test_register_transacao_valida: OK\n");
+}
+
+void test_100_transacoes_em_ordem() {
+    ldg_init_ledger(TEST_PATH);
 
     for (int i = 0; i < 100; i++) {
-        transactions[i].timestamp      = 1000 + i;
-        transactions[i].trade_id       = i + 1;
-        transactions[i].buy_order_id   = (i * 2) + 1;
-        transactions[i].sell_order_id  = (i * 2) + 2;
-        transactions[i].buy_client_id  = 100 + i;
-        transactions[i].sell_client_id = 200 + i;
-        transactions[i].price          = 50.0 + i;
-        transactions[i].quantity       = 10 + i;
+        mtc_transaction_t t = {
+            .timestamp      = 1000 + i,
+            .trade_id       = i + 1,
+            .buy_order_id   = (i * 2) + 1,
+            .sell_order_id  = (i * 2) + 2,
+            .buy_client_id  = 100 + i,
+            .sell_client_id = 200 + i,
+            .price          = 50.0 + i,
+            .quantity       = 10 + i
+        };
+
+        int32_t result = ldg_register_trade(&t);
+        assert(result == 0);
     }
 
-    Buffer b = { .data = transactions, .count = 100 };
-    int result = registerTrades(&b);
-    assert(result == 0);
-    printf("test_100_transactions_in_order: OK\n");
+    cleanup();
+    printf("test_100_transacoes_em_ordem: OK\n");
 }
 
-/*
- * Verifica se as transações foram gravadas na ordem correta
- * lendo o arquivo binário gerado
- */
-void test_order_preserved_in_file() {
+void test_ordem_preservada_no_arquivo() {
+    ldg_init_ledger(TEST_PATH);
+
     mtc_transaction_t transactions[5];
     for (int i = 0; i < 5; i++) {
         transactions[i].trade_id  = i + 1;
         transactions[i].price     = 10.0 * (i + 1);
         transactions[i].quantity  = i + 1;
         transactions[i].timestamp = 1000 + i;
+        ldg_register_trade(&transactions[i]);
     }
 
-    Buffer b = { .data = transactions, .count = 5 };
-    registerTrades(&b);
-
-    /* Lê o arquivo gerado e verifica a ordem */
-    FILE* f = fopen("ledger.bin", "rb");
+    FILE* f = fopen(TEST_PATH, "rb");
     assert(f != NULL);
 
     mtc_transaction_t read_back[5];
@@ -80,15 +96,18 @@ void test_order_preserved_in_file() {
         assert(read_back[i].trade_id == transactions[i].trade_id);
         assert(read_back[i].quantity == transactions[i].quantity);
     }
-    printf("test_order_preserved_in_file: OK\n");
+
+    cleanup();
+    printf("test_ordem_preservada_no_arquivo: OK\n");
 }
 
 int main() {
-    test_null_buffer();
-    test_null_data();
-    test_zero_count();
-    test_100_transactions_in_order();
-    test_order_preserved_in_file();
+    test_init_caminho_valido();
+    test_init_caminho_invalido();
+    test_register_ponteiro_nulo();
+    test_register_transacao_valida();
+    test_100_transacoes_em_ordem();
+    test_ordem_preservada_no_arquivo();
     printf("\nTodos os testes do Ledger passaram!\n");
     return 0;
 }
