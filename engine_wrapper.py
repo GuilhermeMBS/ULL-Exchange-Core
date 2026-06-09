@@ -1,11 +1,9 @@
-# Unir os arquivos C em .dll
-
-# engine_wrapper.py - Compila os arquivos C e expõe as funções via ctypes
+# engine_wrapper.py - Compiles the C source files and exposes functions via ctypes
 
 import ctypes
 import subprocess
 
-# ── Estruturas ────────────────────────────────────────────────────────────────
+# ── Structures ────────────────────────────────────────────────────────────────
 
 class ObkOrder(ctypes.Structure):
     _fields_ = [
@@ -31,10 +29,10 @@ class MtcTransaction(ctypes.Structure):
         ("quantity",       ctypes.c_int32),
     ]
 
-# ── Carregamento ──────────────────────────────────────────────────────────────
+# ── Loading ───────────────────────────────────────────────────────────────────
 
 def load_engine():
-    """Compila os arquivos C e carrega a shared library."""
+    """Compiles C source files and loads the shared library."""
 
     result = subprocess.run([
         "gcc", "-shared", "-fPIC",
@@ -49,7 +47,7 @@ def load_engine():
     ], capture_output=True, text=True)
 
     if result.returncode != 0:
-        print("Erro ao compilar engine:")
+        print("Error compiling engine:")
         print(result.stderr)
         return None
 
@@ -69,5 +67,11 @@ def load_engine():
 
     lib.ldg_register_trade.argtypes = [ctypes.POINTER(MtcTransaction)]
     lib.ldg_register_trade.restype  = ctypes.c_int32
+
+    lib.vld_validate_order.argtypes = [ctypes.POINTER(ObkOrder), ctypes.c_int32]
+    lib.vld_validate_order.restype  = None
+
+    lib.mtc_reset.argtypes = []
+    lib.mtc_reset.restype  = None
 
     return lib

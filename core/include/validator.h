@@ -1,5 +1,5 @@
 #pragma once
- 
+
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -7,7 +7,7 @@
 #include "book.h"
 
 /*
-Retorno: Nenhum (altera o order_id para -1 nas ordens inválidas).
-Erro Interno: se o preço ou quantidade ≤ 0 ou side ≠ ‘C’ ou ‘V’.
+Return: none (sets order_id to -1 on invalid orders).
+Rules: price or quantity <= 0, or side is not 'A' or 'B'.
 */
 void vld_validate_order(obk_order_t* buffer, int32_t count);

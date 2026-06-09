@@ -1,21 +1,19 @@
 /*
  * parser.c — ULL Exchange Core
- * Módulo de ingestão de dados (Parser)
+ * Data ingestion module (Parser)
  *
- * Responsável: Gabriel
+ * Reads the market CSV file line by line, converts each field to
+ * the obk_order_t struct, and stores everything in a contiguous
+ * buffer in RAM. After loading, calls vld_validate_order() to mark
+ * invalid orders before returning control to the matching engine.
  *
- * Lê o arquivo CSV de mercado linha a linha, converte cada campo para
- * a struct obk_order_t e armazena tudo em um buffer contíguo em RAM.
- * Após o carregamento, invoca vld_validate_order() para marcar as
- * ordens inválidas antes de devolver o controle ao Matching Engine.
+ * Conventions:
+ *   - Order type  : obk_order_t  (defined in book.h)
+ *   - CSV sides   : 'A' = Ask (sell) | 'B' = Bid (buy)
+ *   - Error code  : ret_code_t   (defined in errorlib.h)
+ *   - Invalid orders: is_valid = false, order_id = (uint32_t)-1
  *
- * Convenções do grupo:
- *   - Tipo de ordem  : obk_order_t  (definido em book.h)
- *   - Side no CSV    : 'A' = Ask (venda) | 'B' = Bid (compra)
- *   - Código de erro : ret_code_t   (definido em errorlib.h)
- *   - Ordens inválidas: is_valid = false, order_id = (uint32_t)-1
- *
- * Formato esperado do CSV (sem espaços extras, cabeçalho obrigatório):
+ * Expected CSV format (no extra spaces, header required):
  *   timestamp,order_id,client_id,quantity,price,symbol,side
  *   1748000001,1,42,100,150.50,PETR4,B
  *   1748000002,2,43,200,149.00,PETR4,A
@@ -27,26 +25,26 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "errorlib.h"   /* ret_code_t, ERR_NONE, ERR_ORD, ERR_MEM */
-#include "book.h"       /* obk_order_t, obk_order_pt, tm_stmp_t   */
-#include "parser.h"     /* prs_create_orders, prs_free_buffer      */
-#include "validator.h"  /* vld_validate_order                      */
+#include "errorlib.h"
+#include "book.h"
+#include "parser.h"
+#include "validator.h"
 
 /* ─────────────────────────────────────────────────────────────────────────
- * Constantes internas
+ * Internal constants
  * ───────────────────────────────────────────────────────────────────────── */
 
-#define PRS_MAX_LINE 256   /* tamanho máximo de uma linha do CSV */
+#define PRS_MAX_LINE 256
 
 /* ─────────────────────────────────────────────────────────────────────────
- * Funções auxiliares (static — sem linkagem externa)
+ * Static helpers
  * ───────────────────────────────────────────────────────────────────────── */
 
 /*
- * prs_count_lines — conta as linhas de dados do CSV (exclui cabeçalho
- * e linhas em branco) e rebobina o ponteiro para o início.
+ * prs_count_lines — counts data lines in the CSV (excludes header and blank
+ * lines) and rewinds the file pointer to the beginning.
  *
- * Retorno: número de linhas de dados (>= 0), ou -1 em erro de I/O.
+ * Return: number of data lines (>= 0), or -1 on I/O error.
  */
 static ret_code_t prs_count_lines(FILE *fp) {
     char    line[PRS_MAX_LINE];
@@ -56,9 +54,9 @@ static ret_code_t prs_count_lines(FILE *fp) {
     rewind(fp);
 
     while (fgets(line, sizeof(line), fp)) {
-        if (first) { first = 0; continue; }           /* pula cabeçalho */
+        if (first) { first = 0; continue; }           /* skip header */
         if (line[0] == '\n' || line[0] == '\r' ||
-            line[0] == '\0') continue;                 /* pula em branco */
+            line[0] == '\0') continue;                 /* skip blank lines */
         count++;
     }
 
@@ -69,13 +67,13 @@ static ret_code_t prs_count_lines(FILE *fp) {
 }
 
 /*
- * prs_parse_line — converte uma linha CSV em obk_order_t.
+ * prs_parse_line — converts a CSV line into an obk_order_t.
  *
- * Formato: timestamp,order_id,client_id,quantity,price,symbol,side
+ * Format: timestamp,order_id,client_id,quantity,price,symbol,side
  *
- * Retorno:
- *   0   → conversão OK
- *  -1   → linha malformada (campos insuficientes ou tipo errado)
+ * Return:
+ *   0   → conversion OK
+ *  -1   → malformed line (too few fields or wrong type)
  */
 static ret_code_t prs_parse_line(const char *line, obk_order_t *out) {
     if (!line || !out) return -1;
@@ -98,7 +96,7 @@ static ret_code_t prs_parse_line(const char *line, obk_order_t *out) {
     out->quantity  = qty;
     out->price     = price;
     out->side      = side;
-    out->is_valid  = true;   /* o Validator ajusta se necessário */
+    out->is_valid  = true;   /* validator adjusts if needed */
 
     strncpy(out->symbol, symbol, sizeof(out->symbol) - 1);
     out->symbol[sizeof(out->symbol) - 1] = '\0';
@@ -107,38 +105,36 @@ static ret_code_t prs_parse_line(const char *line, obk_order_t *out) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
- * Interface pública
+ * Public interface
  * ───────────────────────────────────────────────────────────────────────── */
 
 /*
- * prs_create_orders — lê o CSV, aloca o buffer contíguo e valida as ordens.
+ * prs_create_orders — reads the CSV, allocates the contiguous buffer,
+ * and validates the orders.
  *
- * Parâmetros:
- *   csv_path    → caminho do arquivo CSV de mercado
- *   total_count → saída: número total de ordens carregadas
+ * Parameters:
+ *   csv_path    → path to the market CSV file
+ *   total_count → output: total number of orders loaded
  *
- * Retorno:
- *   Ponteiro para o array de obk_order_t em caso de sucesso.
- *   NULL se o arquivo não existir ou se houver falha de malloc.
+ * Return:
+ *   Pointer to the obk_order_t array on success.
+ *   NULL if the file does not exist or malloc fails.
  */
 obk_order_t* prs_create_orders(const char *csv_path, int32_t *total_count) {
     if (!csv_path || !total_count) return NULL;
 
     *total_count = 0;
 
-    /* ── Abre o arquivo ── */
     FILE *fp = fopen(csv_path, "r");
     if (!fp) return NULL;
 
-    /* ── Conta as linhas para dimensionar o buffer de uma vez (sem realloc) ── */
+    /* Count lines to allocate the buffer in a single shot (no realloc) */
     int32_t total = prs_count_lines(fp);
     if (total <= 0) { fclose(fp); return NULL; }
 
-    /* ── Alocação única do buffer contíguo ── */
     obk_order_t *buffer = (obk_order_t *)malloc((size_t)total * sizeof(obk_order_t));
     if (!buffer) { fclose(fp); return NULL; }
 
-    /* ── Percorre o CSV e preenche o buffer ── */
     char    line[PRS_MAX_LINE];
     int32_t first  = 1;
     int32_t loaded = 0;
@@ -146,22 +142,19 @@ obk_order_t* prs_create_orders(const char *csv_path, int32_t *total_count) {
     rewind(fp);
 
     while (fgets(line, sizeof(line), fp) && loaded < total) {
-        if (first) { first = 0; continue; }   /* pula cabeçalho */
+        if (first) { first = 0; continue; }   /* skip header */
 
-        /* Remove \n / \r do final */
+        /* Strip trailing \n / \r */
         size_t len = strlen(line);
         while (len > 0 && (line[len-1] == '\n' || line[len-1] == '\r'))
             line[--len] = '\0';
 
-        if (len == 0) continue;   /* ignora linhas em branco */
+        if (len == 0) continue;
 
         obk_order_t *cur = &buffer[loaded];
 
         if (prs_parse_line(line, cur) != 0) {
-            /*
-             * Linha malformada: zera a entrada e marca como inválida
-             * seguindo o contrato do Validator.
-             */
+            /* Malformed line: zero the slot and mark invalid */
             memset(cur, 0, sizeof(obk_order_t));
             cur->order_id = (uint32_t)-1;
             cur->is_valid = false;
@@ -172,7 +165,6 @@ obk_order_t* prs_create_orders(const char *csv_path, int32_t *total_count) {
 
     fclose(fp);
 
-    /* ── Invoca o Validator em lote sobre o buffer carregado ── */
     vld_validate_order(buffer, loaded);
 
     *total_count = loaded;
@@ -180,11 +172,11 @@ obk_order_t* prs_create_orders(const char *csv_path, int32_t *total_count) {
 }
 
 /*
- * prs_free_buffer — libera o buffer alocado por prs_create_orders.
+ * prs_free_buffer — frees the buffer allocated by prs_create_orders.
  *
- * Retorno:
- *    0  → sucesso
- *   -1  → buffer já era NULL
+ * Return:
+ *    0  → success
+ *   -1  → buffer was already NULL
  */
 ret_code_t prs_free_buffer(obk_order_t *buffer) {
     if (!buffer) return ERR_ORD;

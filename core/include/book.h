@@ -19,7 +19,7 @@ typedef struct {
     bool is_valid;
 } obk_order_t;
 
-typedef struct obk_book_private_s* obk_book_pt; // Opaque Pointer
+typedef struct obk_book_private_s* obk_book_pt; // Opaque pointer
 
 typedef obk_order_t* obk_order_pt;
 
@@ -78,4 +78,14 @@ ret_code_t obk_remove_order(obk_book_pt book, char side);
  * @param side Target book side identifier ('A' or 'B').
  * @return A structural copy instance representing the prioritized element.
  */
-obk_order_t obk_get_order(obk_book_pt book, char side); // Side = 'A' / 'B'
+obk_order_t obk_get_order(obk_book_pt book, char side);
+
+/**
+ * @brief Returns the number of orders on the ask side.
+ */
+int32_t obk_ask_count(obk_book_pt book);
+
+/**
+ * @brief Returns the number of orders on the bid side.
+ */
+int32_t obk_bid_count(obk_book_pt book);

@@ -1,65 +1,65 @@
-# main.py - Ponto de entrada do programa
+# main.py - Entry point for the exchange engine
 
 import sys
-from scripts.generate_market import generateMarket
+from scripts.generate_market import generate_market
 from engine_wrapper import load_engine
 import ctypes
 
-# ── Configurações ─────────────────────────────────────────────────────────────
+# ── Configuration ─────────────────────────────────────────────────────────────
 
 MARKET_PATH  = "data/market.csv"
 LEDGER_PATH  = "data/ledger.bin"
 NUM_ORDERS   = 1000
-FAILURES     = 0.1
+INVALID_RATE = 0.1
 
-# ── Funções principais ────────────────────────────────────────────────────────
+# ── Main function ─────────────────────────────────────────────────────────────
 
-def startEngine():
-    """Orquestra o fluxo completo do exchange engine."""
+def start_engine():
+    """Orchestrates the full exchange engine flow."""
 
-    #Gera o mercado (CSV)
-    result = generateMarket(MARKET_PATH, num_orders=NUM_ORDERS, failures=FAILURES)
+    # Generate market CSV
+    result = generate_market(MARKET_PATH, num_orders=NUM_ORDERS, failures=INVALID_RATE)
     if result != 0:
-        print(f"Erro ao gerar mercado: {result}")
+        print(f"Error generating market: {result}")
         return result
 
-    #Carrega o engine C
+    # Load C engine
     lib = load_engine()
     if lib is None:
-        print("Erro ao carregar engine.")
+        print("Error loading engine.")
         return -1
 
-    #Inicializa o ledger
+    # Initialize ledger
     result = lib.ldg_init_ledger(LEDGER_PATH.encode())
     if result != 0:
-        print(f"Erro ao inicializar ledger: {result}")
+        print(f"Error initializing ledger: {result}")
         return result
 
-    #Parseia o CSV em ordens C
+    # Parse CSV into C orders
     total_count = ctypes.c_int32(0)
     orders = lib.prs_create_orders(MARKET_PATH.encode(), ctypes.byref(total_count))
     if not orders:
-        print("Erro ao parsear ordens.")
+        print("Error parsing orders.")
         return -1
-    print(f"{total_count.value} ordens carregadas.")
+    print(f"{total_count.value} orders loaded.")
 
-    #Processa cada ordem no matching engine
+    # Process each order through the matching engine
     trades = 0
     for i in range(total_count.value):
         result = lib.mtc_make_trade(ctypes.byref(orders[i]))
-        if result == 1 or result == 2:  # Match Total ou Parcial
+        if result == 1 or result == 2:  # Full match or partial match
             trades += 1
 
-    print(f"Matching concluído. {trades} trades executados.")
+    print(f"Matching complete. {trades} trades executed.")
 
-    # 6. Libera buffer de ordens
+    # Free order buffer
     lib.prs_free_buffer(orders)
 
-    print(f"Ledger salvo em: {LEDGER_PATH}")
+    print(f"Ledger saved to: {LEDGER_PATH}")
     return 0
 
 
 if __name__ == "__main__":
-    result = startEngine()
-    print(f"\nPrograma encerrado com código: {result}")
+    result = start_engine()
+    print(f"\nProgram exited with code: {result}")
     sys.exit(result)

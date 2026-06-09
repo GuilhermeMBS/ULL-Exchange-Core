@@ -1,4 +1,4 @@
-# test_wrapper.py - Testes de integração do engine C via ctypes
+# test_wrapper.py - Integration tests for the C engine via ctypes
 
 import ctypes
 import os
@@ -16,7 +16,7 @@ def cleanup():
             os.remove(f)
 
 def make_order(order_id, price, quantity, side, timestamp=1000):
-    """Cria uma obk_order_t preenchida."""
+    """Creates a populated obk_order_t."""
     o = ObkOrder()
     o.order_id  = order_id
     o.client_id = 1
@@ -28,116 +28,120 @@ def make_order(order_id, price, quantity, side, timestamp=1000):
     o.is_valid  = True
     return o
 
-# ── Carregamento ──────────────────────────────────────────────────────────────
+# ── Loading ───────────────────────────────────────────────────────────────────
 
-def test_engine_carrega():
-    """Engine deve compilar e carregar sem erros."""
+def test_engine_loads():
+    """Engine must compile and load without errors."""
     lib = load_engine()
-    assert lib is not None, "Falha ao carregar engine"
-    print("test_engine_carrega: OK")
+    assert lib is not None, "Failed to load engine"
+    print("test_engine_loads: OK")
     return lib
 
 # ── Ledger ────────────────────────────────────────────────────────────────────
 
 def test_ledger_init(lib):
-    """Ledger deve inicializar o arquivo binário com sucesso."""
+    """Ledger must initialize the binary file successfully."""
     result = lib.ldg_init_ledger(LEDGER_PATH.encode())
-    assert result == 0, f"Esperado 0, got {result}"
-    assert os.path.exists(LEDGER_PATH), "Arquivo do ledger não foi criado"
+    assert result == 0, f"Expected 0, got {result}"
+    assert os.path.exists(LEDGER_PATH), "Ledger file was not created"
     print("test_ledger_init: OK")
 
-def test_ledger_init_caminho_invalido(lib):
-    """Ledger deve retornar -1 para caminho inválido."""
-    result = lib.ldg_init_ledger(b"/caminho/invalido/ledger.bin")
-    assert result == -1, f"Esperado -1, got {result}"
-    print("test_ledger_init_caminho_invalido: OK")
+def test_ledger_init_invalid_path(lib):
+    """Ledger must return -1 for an invalid path."""
+    result = lib.ldg_init_ledger(b"/invalid/path/ledger.bin")
+    assert result == -1, f"Expected -1, got {result}"
+    print("test_ledger_init_invalid_path: OK")
 
 # ── Validator ─────────────────────────────────────────────────────────────────
 
-def test_validator_ordem_invalida_preco(lib):
-    """Ordem com preço <= 0 deve ter order_id alterado para -1."""
+def test_validator_invalid_price(lib):
+    """Order with price <= 0 must have order_id set to -1."""
     orders = (ObkOrder * 1)()
-    orders[0] = make_order(order_id=1, price=-10.0, quantity=5, side='C')
+    orders[0] = make_order(order_id=1, price=-10.0, quantity=5, side='B')
     lib.vld_validate_order(orders, 1)
     assert orders[0].order_id == ctypes.c_uint32(-1).value
-    print("test_validator_ordem_invalida_preco: OK")
+    print("test_validator_invalid_price: OK")
 
-def test_validator_ordem_invalida_quantidade(lib):
-    """Ordem com quantidade <= 0 deve ter order_id alterado para -1."""
+def test_validator_invalid_quantity(lib):
+    """Order with quantity <= 0 must have order_id set to -1."""
     orders = (ObkOrder * 1)()
-    orders[0] = make_order(order_id=2, price=10.0, quantity=0, side='C')
+    orders[0] = make_order(order_id=2, price=10.0, quantity=0, side='B')
     lib.vld_validate_order(orders, 1)
     assert orders[0].order_id == ctypes.c_uint32(-1).value
-    print("test_validator_ordem_invalida_quantidade: OK")
+    print("test_validator_invalid_quantity: OK")
 
-def test_validator_ordem_invalida_side(lib):
-    """Ordem com side diferente de C ou V deve ter order_id alterado para -1."""
+def test_validator_invalid_side(lib):
+    """Order with side other than A or B must have order_id set to -1."""
     orders = (ObkOrder * 1)()
     orders[0] = make_order(order_id=3, price=10.0, quantity=5, side='X')
     lib.vld_validate_order(orders, 1)
     assert orders[0].order_id == ctypes.c_uint32(-1).value
-    print("test_validator_ordem_invalida_side: OK")
+    print("test_validator_invalid_side: OK")
 
-def test_validator_ordem_valida(lib):
-    """Ordem válida não deve ter order_id alterado."""
+def test_validator_valid_order(lib):
+    """Valid order must not have its order_id modified."""
     orders = (ObkOrder * 1)()
-    orders[0] = make_order(order_id=4, price=10.0, quantity=5, side='C')
+    orders[0] = make_order(order_id=4, price=10.0, quantity=5, side='B')
     lib.vld_validate_order(orders, 1)
     assert orders[0].order_id == 4
-    print("test_validator_ordem_valida: OK")
+    print("test_validator_valid_order: OK")
 
 # ── Matching ──────────────────────────────────────────────────────────────────
 
-def test_matching_sem_par_vai_para_book(lib):
-    """Ordem de compra sem venda disponível deve retornar 0 (foi para o book)."""
-    o = make_order(order_id=10, price=50.0, quantity=5, side='C')
+def test_matching_no_match_goes_to_book(lib):
+    """Bid order with no available ask must return 0 (queued in book)."""
+    lib.mtc_reset()
+    o = make_order(order_id=10, price=50.0, quantity=5, side='B')
     result = lib.mtc_make_trade(ctypes.byref(o))
-    assert result == 0, f"Esperado 0, got {result}"
-    print("test_matching_sem_par_vai_para_book: OK")
+    assert result == 0, f"Expected 0, got {result}"
+    print("test_matching_no_match_goes_to_book: OK")
 
-def test_matching_ordem_invalida(lib):
-    """Ordem inválida deve retornar -1."""
+def test_matching_invalid_order(lib):
+    """Invalid order (bad side) must return -1."""
+    lib.mtc_reset()
     o = make_order(order_id=ctypes.c_uint32(-1).value, price=-1.0, quantity=0, side='X')
     o.is_valid = False
     result = lib.mtc_make_trade(ctypes.byref(o))
-    assert result == -1, f"Esperado -1, got {result}"
-    print("test_matching_ordem_invalida: OK")
+    assert result == -1, f"Expected -1, got {result}"
+    print("test_matching_invalid_order: OK")
 
-def test_matching_match_total(lib):
-    """Compra e venda com mesmo preço e quantidade deve gerar match total (1)."""
-    venda  = make_order(order_id=20, price=50.0, quantity=5, side='V', timestamp=1000)
-    compra = make_order(order_id=21, price=50.0, quantity=5, side='C', timestamp=1001)
-    lib.mtc_make_trade(ctypes.byref(venda))
-    result = lib.mtc_make_trade(ctypes.byref(compra))
-    assert result == 1, f"Esperado 1 (match total), got {result}"
-    print("test_matching_match_total: OK")
+def test_matching_full_match(lib):
+    """Ask and bid with same price and quantity must produce a full match (1)."""
+    lib.mtc_reset()
+    ask = make_order(order_id=20, price=50.0, quantity=5, side='A', timestamp=1000)
+    bid = make_order(order_id=21, price=50.0, quantity=5, side='B', timestamp=1001)
+    lib.mtc_make_trade(ctypes.byref(ask))
+    result = lib.mtc_make_trade(ctypes.byref(bid))
+    assert result == 1, f"Expected 1 (full match), got {result}"
+    print("test_matching_full_match: OK")
 
-def test_matching_match_parcial(lib):
-    """Compra maior que venda deve gerar match parcial (2)."""
-    venda  = make_order(order_id=30, price=50.0, quantity=3, side='V', timestamp=1000)
-    compra = make_order(order_id=31, price=50.0, quantity=10, side='C', timestamp=1001)
-    lib.mtc_make_trade(ctypes.byref(venda))
-    result = lib.mtc_make_trade(ctypes.byref(compra))
-    assert result == 2, f"Esperado 2 (match parcial), got {result}"
-    print("test_matching_match_parcial: OK")
+def test_matching_partial_match(lib):
+    """Bid larger than ask must produce a partial match (2)."""
+    lib.mtc_reset()
+    ask = make_order(order_id=30, price=50.0, quantity=3, side='A', timestamp=1000)
+    bid = make_order(order_id=31, price=50.0, quantity=10, side='B', timestamp=1001)
+    lib.mtc_make_trade(ctypes.byref(ask))
+    result = lib.mtc_make_trade(ctypes.byref(bid))
+    assert result == 2, f"Expected 2 (partial match), got {result}"
+    print("test_matching_partial_match: OK")
 
-# ── Execução ──────────────────────────────────────────────────────────────────
+# ── Run ───────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    lib = test_engine_carrega()
+    lib = test_engine_loads()
 
     test_ledger_init(lib)
-    test_ledger_init_caminho_invalido(lib)
+    test_ledger_init_invalid_path(lib)
 
-    test_validator_ordem_invalida_preco(lib)
-    test_validator_ordem_invalida_quantidade(lib)
-    test_validator_ordem_invalida_side(lib)
-    test_validator_ordem_valida(lib)
+    test_validator_invalid_price(lib)
+    test_validator_invalid_quantity(lib)
+    test_validator_invalid_side(lib)
+    test_validator_valid_order(lib)
 
-    test_matching_sem_par_vai_para_book(lib)
-    test_matching_ordem_invalida(lib)
-    test_matching_match_total(lib)
-    test_matching_match_parcial(lib)
+    test_matching_no_match_goes_to_book(lib)
+    test_matching_invalid_order(lib)
+    test_matching_full_match(lib)
+    test_matching_partial_match(lib)
 
     cleanup()
-    print("\nTodos os testes do wrapper passaram!")
+    print("\nAll wrapper tests passed!")
