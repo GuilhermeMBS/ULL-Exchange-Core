@@ -1,4 +1,3 @@
-
 # Gerar um CSV de 1.000 ordens variadas (válidas e inválidas) e aleatórias
 # Gerar um CSV de 1000 ordens variadas (válidas e inválidas) e aleatórias
 
@@ -8,6 +7,17 @@ import sys
 from datetime import datetime, timedelta
 
 def generateMarket(filename, num_orders, failures):
+    """
+    Gera um arquivo CSV com ordens de mercado simuladas.
+
+    Args:
+        filename   (str):   Caminho do arquivo CSV a ser gerado
+        num_orders (int):   Número total de ordens a gerar
+        failures   (float): Proporção de ordens inválidas (0.0 a 1.0)
+
+    Returns:
+        int: 0 se sucesso, -4 se erro ao criar o arquivo
+    """
     try:
         with open(filename, 'w', newline='') as f:
             writer = csv.writer(f)
@@ -37,4 +47,3 @@ def generateMarket(filename, num_orders, failures):
 if __name__ == "__main__":
     result = generateMarket("data/market.csv", num_orders=1000, failures=0.1) #vai ter algumas inválidas
     print(f"generateMarket retornou: {result}")
-
