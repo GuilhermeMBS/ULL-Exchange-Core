@@ -48,7 +48,7 @@
  *
  * Retorno: número de linhas de dados (>= 0), ou -1 em erro de I/O.
  */
-static int32_t prs_count_lines(FILE *fp) {
+static ret_code_t prs_count_lines(FILE *fp) {
     char    line[PRS_MAX_LINE];
     int32_t count = 0;
     int32_t first = 1;
@@ -77,7 +77,7 @@ static int32_t prs_count_lines(FILE *fp) {
  *   0   → conversão OK
  *  -1   → linha malformada (campos insuficientes ou tipo errado)
  */
-static int32_t prs_parse_line(const char *line, obk_order_t *out) {
+static ret_code_t prs_parse_line(const char *line, obk_order_t *out) {
     if (!line || !out) return -1;
 
     uint32_t ts, oid, cid, qty;
@@ -85,12 +85,12 @@ static int32_t prs_parse_line(const char *line, obk_order_t *out) {
     char     symbol[8];
     char     side;
 
-    int parsed = sscanf(line,
+    uint32_t parsed = sscanf(line,
                         "%u,%u,%u,%u,%lf,%7[^,],%c",
                         &ts, &oid, &cid, &qty,
                         &price, symbol, &side);
 
-    if (parsed != 7) return -1;
+    if (parsed != 7) return ERR_ORD;
 
     out->timestamp = (tm_stmp_t)ts;
     out->order_id  = oid;
@@ -103,7 +103,7 @@ static int32_t prs_parse_line(const char *line, obk_order_t *out) {
     strncpy(out->symbol, symbol, sizeof(out->symbol) - 1);
     out->symbol[sizeof(out->symbol) - 1] = '\0';
 
-    return 0;
+    return ERR_NONE;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -121,7 +121,7 @@ static int32_t prs_parse_line(const char *line, obk_order_t *out) {
  *   Ponteiro para o array de obk_order_t em caso de sucesso.
  *   NULL se o arquivo não existir ou se houver falha de malloc.
  */
-obk_order_t *prs_create_orders(const char *csv_path, int32_t *total_count) {
+obk_order_t* prs_create_orders(const char *csv_path, int32_t *total_count) {
     if (!csv_path || !total_count) return NULL;
 
     *total_count = 0;
@@ -186,8 +186,8 @@ obk_order_t *prs_create_orders(const char *csv_path, int32_t *total_count) {
  *    0  → sucesso
  *   -1  → buffer já era NULL
  */
-int32_t prs_free_buffer(obk_order_t *buffer) {
+ret_code_t prs_free_buffer(obk_order_t *buffer) {
     if (!buffer) return -1;
     free(buffer);
-    return 0;
+    return ERR_NONE;
 }

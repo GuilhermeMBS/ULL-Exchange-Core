@@ -8,6 +8,15 @@
   @brief Módulo de registro de transações em arquivo binário.
  */
 
+ /*
+ Agrupa um array de transações e sua quantidade.
+ */
+typedef struct {
+    mtc_transaction_t* data;  /* Array de transações */
+    uint32_t count;                /* Número de transações no array */
+} Buffer;
+
+
 /*
   Inicializa o arquivo binário do ledger no caminho especificado.
  
@@ -24,17 +33,9 @@ int32_t ldg_init_ledger(const char* bin_path);
 int32_t ldg_register_trade(mtc_transaction_t* t);
 
 /*
- Agrupa um array de transações e sua quantidade.
- */
-typedef struct {
-    mtc_transaction_t* data;  /* Array de transações */
-    int count;                /* Número de transações no array */
-} Buffer;
-
-/*
   Grava todas as transações do buffer no arquivo "ledger.bin".
  
   @param transactions  Ponteiro para o Buffer com as transações
   @return              0 se sucesso, -3 se entrada inválida ou falha de escrita
  */
-int registerTrades(Buffer* transactions);
+ret_code_t ldg_register_trades(Buffer* transactions);

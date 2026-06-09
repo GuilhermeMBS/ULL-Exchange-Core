@@ -10,14 +10,14 @@
  * @return              0 se sucesso, -3 se entrada inválida ou falha de escrita
  */
 
-int registerTrades(Buffer* transactions) {
+ret_code_t ldg_register_trades(Buffer* transactions) {
      /* Valida se o buffer e seus dados são válidos */
     if (!transactions || !transactions->data || transactions->count <= 0)
-        return -3;
+        return ERR_MEM;
 
     /* Abre o arquivo binário para escrita */
     FILE* f = fopen("ledger.bin", "wb");
-    if (!f) return -3;
+    if (!f) return ERR_MEM;
 
     /* Grava todas as transações de uma vez */
     size_t written = fwrite(transactions->data,
@@ -28,7 +28,7 @@ int registerTrades(Buffer* transactions) {
 
     /* Verifica se todas as transções foram gravadas */
     if (written != (size_t)transactions->count)
-        return -3;
+        return ERR_MEM;
 
-    return 0;
+    return ERR_NONE;
 }

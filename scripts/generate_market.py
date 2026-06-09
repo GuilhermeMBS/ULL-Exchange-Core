@@ -1,4 +1,3 @@
-
 # Gerar um CSV de 1.000 ordens variadas (válidas e inválidas) e aleatórias
 # Gerar um CSV de 1000 ordens variadas (válidas e inválidas) e aleatórias
 
@@ -48,4 +47,3 @@ def generateMarket(filename, num_orders, failures):
 if __name__ == "__main__":
     result = generateMarket("data/market.csv", num_orders=1000, failures=0.1) #vai ter algumas inválidas
     print(f"generateMarket retornou: {result}")
-
