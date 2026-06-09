@@ -1,7 +1,3 @@
-/*
-cmd: gcc core/src/errorlib.c core/src/parser.c core/src/validator.c tests/c_tests/test_validator.c -o validator_tester -Icore/include -Wall -Wextra
-*/
-
 #include <stdio.h>
 #include <assert.h>
 #include <stdint.h>
@@ -10,8 +6,7 @@ cmd: gcc core/src/errorlib.c core/src/parser.c core/src/validator.c tests/c_test
 #include "validator.h"
 #include "book.h"
 
-/* Teste 1: Valida que vld_validate_order lida com buffer NULL
- * de forma segura, retornando imediatamente sem travar. */
+// 1. Validate safe handling of NULL buffer — no crash or undefined behaviour
 void test_null_buffer() {
     printf("[TEST] Validator - NULL buffer...\n");
 
@@ -20,8 +15,7 @@ void test_null_buffer() {
     printf("[PASS] NULL buffer handled correctly.\n\n");
 }
 
-/* Teste 2: Valida que vld_validate_order não faz nada quando count = 0,
- * deixando uma ordem válida intacta. */
+// 2. Validate no-op behaviour when count = 0 — valid order left untouched
 void test_zero_count() {
     printf("[TEST] Validator - count = 0...\n");
 
@@ -41,8 +35,7 @@ void test_zero_count() {
     printf("[PASS] count = 0 handled correctly.\n\n");
 }
 
-/* Teste 3: Valida que ordens estruturalmente corretas (preço positivo,
- * quantidade >= 1, lado válido) são preservadas com is_valid = true. */
+// 3. Validate preservation of structurally correct orders — is_valid remains true
 void test_valid_orders() {
     printf("[TEST] Validator - valid orders...\n");
 
@@ -71,8 +64,7 @@ void test_valid_orders() {
     printf("[PASS] Valid orders preserved.\n\n");
 }
 
-/* Teste 4: Valida que uma ordem com preço = 0.0 é rejeitada
- * (is_valid = false, order_id = -1). */
+// 4. Validate rejection of an order with price = 0.0 (is_valid = false, order_id = -1)
 void test_invalid_price_zero() {
     printf("[TEST] Validator - price = 0...\n");
 
@@ -92,8 +84,7 @@ void test_invalid_price_zero() {
     printf("[PASS] Price zero invalidated.\n\n");
 }
 
-/* Teste 5: Valida que uma ordem com preço negativo é rejeitada
- * (is_valid = false, order_id = -1). */
+// 5. Validate rejection of an order with a negative price (is_valid = false, order_id = -1)
 void test_invalid_price_negative() {
     printf("[TEST] Validator - negative price...\n");
 
@@ -113,8 +104,7 @@ void test_invalid_price_negative() {
     printf("[PASS] Negative price invalidated.\n\n");
 }
 
-/* Teste 6: Valida que uma ordem com quantity = 0 é rejeitada
- * (is_valid = false, order_id = -1). */
+// 6. Validate rejection of an order with quantity = 0 (is_valid = false, order_id = -1)
 void test_invalid_quantity() {
     printf("[TEST] Validator - quantity = 0...\n");
 
@@ -134,9 +124,7 @@ void test_invalid_quantity() {
     printf("[PASS] Quantity zero invalidated.\n\n");
 }
 
-/* Teste 7: Valida que uma ordem com caractere de lado não reconhecido
- * (qualquer coisa diferente de 'A' ou 'B') é rejeitada
- * (is_valid = false, order_id = -1). */
+// 7. Validate rejection of an order with an unrecognised side character (not 'A' or 'B')
 void test_invalid_side() {
     printf("[TEST] Validator - invalid side...\n");
 
@@ -156,9 +144,7 @@ void test_invalid_side() {
     printf("[PASS] Invalid side rejected.\n\n");
 }
 
-/* Teste 8: Valida que uma ordem já marcada como inválida pelo Parser
- * (is_valid = false) é normalizada pelo Validator: o order_id é definido
- * como -1 sem que seus campos sejam reavaliados. */
+// 8. Validate normalisation of a parser-rejected order — order_id set to -1 without re-evaluating fields
 void test_previously_invalid_order() {
     printf("[TEST] Validator - previously invalid order...\n");
 
@@ -177,9 +163,7 @@ void test_previously_invalid_order() {
     printf("[PASS] Previously invalid order normalized.\n\n");
 }
 
-/* Teste 9: Valida o comportamento com um buffer misto contendo uma ordem
- * válida e três inválidas (preço zero, quantidade zero, lado inválido).
- * Apenas a primeira ordem deve permanecer válida; as demais devem ser rejeitadas. */
+// 9. Validate mixed buffer — one valid order survives alongside three invalid entries
 void test_mixed_buffer() {
     printf("[TEST] Validator - mixed buffer...\n");
 

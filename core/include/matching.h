@@ -5,33 +5,42 @@
 
 
 typedef struct {
-    uint32_t timestamp;         // Exact moment of the match
-    int32_t trade_id;           // Unique trade identifier
-    int32_t buy_order_id;       // ID of the original buy order
-    int32_t sell_order_id;      // ID of the original sell order
-    int32_t buy_client_id;      // Buyer client ID
-    int32_t sell_client_id;     // Seller client ID
-    double price;               // Final execution price
-    int32_t quantity;           // Traded quantity
+    uint32_t timestamp;         // Momento exato do casamento
+    int32_t trade_id;           // Identificador único da negociação
+    int32_t buy_order_id;       // ID da ordem de compra original
+    int32_t sell_order_id;      // ID da ordem de venda original
+    int32_t buy_client_id;      // ID do cliente comprador
+    int32_t sell_client_id;     // ID do cliente vendedor
+    double price;               // Preço final de execução
+    int32_t quantity;           // Quantidade negociada
 } mtc_transaction_t;
 
 
-/*
-Return: 0 (no match — queued in book), 1 (full match), 2 (partial match).
-Error: -1 (invalid order received).
-*/
+/**
+ * @brief Tenta casar a ordem recebida com o livro atual.
+ * @param incoming Ponteiro para a ordem recebida.
+ * @return 0 (sem casamento — enfileirada no livro), 1 (casamento total), 2 (casamento parcial).
+ *         ERR_ORD em caso de ordem inválida.
+ */
 ret_code_t mtc_make_trade(obk_order_t* incoming);
 
 
-/*
-Return: 0 (processed).
-Error: -1 (book communication failure).
-*/
+/**
+ * @brief Processa uma ordem de compra no livro.
+ * @param order Ponteiro para a ordem a ser processada.
+ * @return 0 em caso de sucesso, ERR_ORD em falha de comunicação com o livro.
+ */
 ret_code_t mtc_make_bid(obk_order_t* order);
+
+/**
+ * @brief Processa uma ordem de venda no livro.
+ * @param order Ponteiro para a ordem a ser processada.
+ * @return 0 em caso de sucesso, ERR_ORD em falha de comunicação com o livro.
+ */
 ret_code_t mtc_make_sell(obk_order_t* order);
 
 
-/* Introspection — reset state and inspect internal book (test support) */
+/** @brief Introspecção — reinicia o estado e inspeciona o livro interno (suporte a testes). */
 void        mtc_reset(void);
 ret_code_t  mtc_get_ask_count(void);
 ret_code_t  mtc_get_bid_count(void);

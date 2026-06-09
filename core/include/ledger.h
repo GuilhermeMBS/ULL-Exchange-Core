@@ -3,13 +3,13 @@
 #include "errorlib.h"
 #include "matching.h"
 
-/*
+/**
  * @file ledger.h
- * @brief Binary transaction log module.
+ * @brief Módulo de registro binário de transações.
  */
 
-/*
- * Groups an array of transactions and its count.
+/**
+ * @brief Agrupa um array de transações e sua contagem.
  */
 typedef struct {
     mtc_transaction_t* data;
@@ -17,23 +17,23 @@ typedef struct {
 } ldg_buffer_t;
 
 
-/*
-  Initializes the binary ledger file at the given path.
-  @param bin_path  Path to the .bin file to be created
-  @return          0 on success, -1 on permission error
-*/
+/**
+ * @brief Inicializa o arquivo de ledger binário no caminho fornecido.
+ * @param bin_path Caminho para o arquivo .bin a ser criado.
+ * @return 0 em caso de sucesso, -1 em erro de permissão.
+ */
 ret_code_t ldg_init_ledger(const char* bin_path);
 
-/*
-  Appends a single transaction to the ledger.
-  @param t  Pointer to the transaction to be written
-  @return   0 on success, -3 on write failure
-*/
+/**
+ * @brief Adiciona uma única transação ao ledger.
+ * @param t Ponteiro para a transação a ser registrada.
+ * @return 0 em caso de sucesso, -3 em falha de escrita.
+ */
 ret_code_t ldg_register_trade(mtc_transaction_t* t);
 
-/*
-  Writes all transactions in the buffer to the ledger.
-  @param transactions  Pointer to the ldg_buffer_t with the transactions
-  @return              0 on success, -3 on invalid input or write failure
-*/
+/**
+ * @brief Escreve todas as transações do buffer no ledger.
+ * @param transactions Ponteiro para o ldg_buffer_t com as transações.
+ * @return 0 em caso de sucesso, -3 em entrada inválida ou falha de escrita.
+ */
 ret_code_t ldg_register_all(ldg_buffer_t* transactions);

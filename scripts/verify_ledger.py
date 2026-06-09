@@ -15,8 +15,10 @@ import os
 import sys
 import argparse
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from engine_wrapper import MtcTransaction
+
+# ── Carregamento ──────────────────────────────────────────────────────────────
 
 def load_orders(csv_path):
     """Lê o CSV e retorna um dicionário order_id → ordem."""
@@ -45,6 +47,8 @@ def load_trades(ledger_path):
                 break
             trades.append(MtcTransaction.from_buffer_copy(data))
     return trades
+
+# ── Verificações ──────────────────────────────────────────────────────────────
 
 def verify(trades, orders):
     errors   = []
@@ -127,6 +131,8 @@ def verify(trades, orders):
 
     return errors, warnings
 
+# ── Relatório ─────────────────────────────────────────────────────────────────
+
 def report(trades, orders, errors, warnings):
     total   = len(trades)
     vol_tot = sum(t.quantity for t in trades if t.quantity > 0)
@@ -158,6 +164,8 @@ def report(trades, orders, errors, warnings):
         print("\n  Ledger íntegro — nenhuma inconsistência encontrada.")
 
     print()
+
+# ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(description="Verifica a integridade do ledger.bin")

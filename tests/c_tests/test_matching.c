@@ -1,7 +1,3 @@
-/*
-cmd: gcc core/src/errorlib.c core/src/book.c core/src/ledger.c core/src/matching.c tests/c_tests/test_matching.c -o matching_tester -Icore/include -Wall -Wextra
-*/
-
 #include <stdio.h>
 #include <assert.h>
 
@@ -106,12 +102,12 @@ void test_full_match_equal_quantities() {
     mtc_reset();
 
     // Place a resting ask
-    obk_order_t ask = { .order_id = 30, .price = 100.0, .quantity = 200, .side = 'A', .timestamp = 1 };
+    obk_order_t ask = { .order_id = 30, .price = 100.0, .quantity = 200, .side = 'A', .client_id = 1, .timestamp = 1 };
     assert(mtc_make_sell(&ask) == ERR_NONE);
     assert(mtc_get_ask_count() == 1);
 
     // Incoming bid matches exactly
-    obk_order_t bid = { .order_id = 31, .price = 100.0, .quantity = 200, .side = 'B', .timestamp = 2 };
+    obk_order_t bid = { .order_id = 31, .price = 100.0, .quantity = 200, .side = 'B', .client_id = 2, .timestamp = 2 };
     assert(mtc_make_bid(&bid) == 1);
 
     assert(mtc_get_ask_count() == 0);
@@ -128,10 +124,10 @@ void test_partial_match_bid_deficit() {
 
     mtc_reset();
 
-    obk_order_t ask = { .order_id = 40, .price = 50.0, .quantity = 500, .side = 'A', .timestamp = 1 };
+    obk_order_t ask = { .order_id = 40, .price = 50.0, .quantity = 500, .side = 'A', .client_id = 1, .timestamp = 1 };
     assert(mtc_make_sell(&ask) == ERR_NONE);
 
-    obk_order_t bid = { .order_id = 41, .price = 50.0, .quantity = 200, .side = 'B', .timestamp = 2 };
+    obk_order_t bid = { .order_id = 41, .price = 50.0, .quantity = 200, .side = 'B', .client_id = 2, .timestamp = 2 };
     assert(mtc_make_bid(&bid) == 2);
 
     assert(mtc_get_ask_count() == 1);
@@ -151,10 +147,10 @@ void test_partial_match_ask_deficit() {
 
     mtc_reset();
 
-    obk_order_t bid = { .order_id = 50, .price = 80.0, .quantity = 500, .side = 'B', .timestamp = 1 };
+    obk_order_t bid = { .order_id = 50, .price = 80.0, .quantity = 500, .side = 'B', .client_id = 1, .timestamp = 1 };
     assert(mtc_make_bid(&bid) == ERR_NONE);
 
-    obk_order_t ask = { .order_id = 51, .price = 80.0, .quantity = 200, .side = 'A', .timestamp = 2 };
+    obk_order_t ask = { .order_id = 51, .price = 80.0, .quantity = 200, .side = 'A', .client_id = 2, .timestamp = 2 };
     assert(mtc_make_sell(&ask) == 2);
 
     assert(mtc_get_bid_count() == 1);
@@ -175,9 +171,9 @@ void test_recursive_full_match_bid_surplus() {
     mtc_reset();
 
     // Insert 3 resting asks at the same price, 100 units each
-    obk_order_t ask1 = { .order_id = 60, .price = 40.0, .quantity = 100, .side = 'A', .timestamp = 1 };
-    obk_order_t ask2 = { .order_id = 61, .price = 40.0, .quantity = 100, .side = 'A', .timestamp = 2 };
-    obk_order_t ask3 = { .order_id = 62, .price = 40.0, .quantity = 100, .side = 'A', .timestamp = 3 };
+    obk_order_t ask1 = { .order_id = 60, .price = 40.0, .quantity = 100, .side = 'A', .client_id = 1, .timestamp = 1 };
+    obk_order_t ask2 = { .order_id = 61, .price = 40.0, .quantity = 100, .side = 'A', .client_id = 1, .timestamp = 2 };
+    obk_order_t ask3 = { .order_id = 62, .price = 40.0, .quantity = 100, .side = 'A', .client_id = 1, .timestamp = 3 };
 
     assert(mtc_make_sell(&ask1) == ERR_NONE);
     assert(mtc_make_sell(&ask2) == ERR_NONE);
@@ -185,7 +181,7 @@ void test_recursive_full_match_bid_surplus() {
     assert(mtc_get_ask_count() == 3);
 
     // Bid for the entire 300 units — must consume all three asks recursively
-    obk_order_t bid = { .order_id = 63, .price = 40.0, .quantity = 300, .side = 'B', .timestamp = 4 };
+    obk_order_t bid = { .order_id = 63, .price = 40.0, .quantity = 300, .side = 'B', .client_id = 2, .timestamp = 4 };
     assert(mtc_make_bid(&bid) == 1);
 
     assert(mtc_get_ask_count() == 0);
@@ -203,7 +199,7 @@ void test_trade_routing_via_make_trade() {
     mtc_reset();
 
     // Bid side routing: book is empty, order must land in bid book
-    obk_order_t bid = { .order_id = 70, .price = 60.0, .quantity = 150, .side = 'B', .timestamp = 1 };
+    obk_order_t bid = { .order_id = 70, .price = 60.0, .quantity = 150, .side = 'B', .client_id = 1, .timestamp = 1, .is_valid = true };
     assert(mtc_make_trade(&bid) == ERR_NONE);
     assert(mtc_get_bid_count() == 1);
     assert(mtc_get_ask_count() == 0);
@@ -211,7 +207,7 @@ void test_trade_routing_via_make_trade() {
     mtc_reset();
 
     // Ask side routing: book is empty, order must land in ask book
-    obk_order_t ask = { .order_id = 71, .price = 60.0, .quantity = 150, .side = 'A', .timestamp = 2 };
+    obk_order_t ask = { .order_id = 71, .price = 60.0, .quantity = 150, .side = 'A', .client_id = 1, .timestamp = 2, .is_valid = true };
     assert(mtc_make_trade(&ask) == ERR_NONE);
     assert(mtc_get_ask_count() == 1);
     assert(mtc_get_bid_count() == 0);

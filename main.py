@@ -1,18 +1,12 @@
-# main.py - Entry point for the exchange engine
-
 import sys
 from scripts.generate_market import generate_market
 from engine_wrapper import load_engine
 import ctypes
 
-# ── Configuration ─────────────────────────────────────────────────────────────
-
 MARKET_PATH  = "data/market.csv"
 LEDGER_PATH  = "data/ledger.bin"
 NUM_ORDERS   = 1000
 INVALID_RATE = 0.1
-
-# ── Main function ─────────────────────────────────────────────────────────────
 
 def start_engine():
     """Orchestrates the full exchange engine flow."""

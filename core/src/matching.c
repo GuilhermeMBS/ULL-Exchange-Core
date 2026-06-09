@@ -18,6 +18,9 @@ ret_code_t mtc_make_bid(obk_order_t* order) {
     if (order->price < best_ask.price)
         return (int32_t)obk_insert_order(s_book, order);
 
+    if (order->client_id == best_ask.client_id)
+        return ERR_ORD;
+
     uint32_t qty = order->quantity < best_ask.quantity
                    ? order->quantity : best_ask.quantity;
 
@@ -59,6 +62,9 @@ ret_code_t mtc_make_sell(obk_order_t* order) {
     if (order->price > best_bid.price)
         return (int32_t)obk_insert_order(s_book, order);
 
+    if (order->client_id == best_bid.client_id)
+        return ERR_ORD;
+
     uint32_t qty = order->quantity < best_bid.quantity
                    ? order->quantity : best_bid.quantity;
 
@@ -78,19 +84,21 @@ ret_code_t mtc_make_sell(obk_order_t* order) {
         obk_remove_order(s_book, 'B');
         return 1;
     }
+    
     if (order->quantity > best_bid.quantity) {
         obk_remove_order(s_book, 'B');
         order->quantity -= qty;
         int32_t r = mtc_make_sell(order);
         return (r == 1) ? 1 : 2;
     }
+    
     obk_change_order(s_book, best_bid.quantity - qty, 'B');
     return 2;
 }
 
 
 ret_code_t mtc_make_trade(obk_order_t* incoming) {
-    if (!incoming) return ERR_ORD;
+    if (!incoming || !incoming->is_valid) return ERR_ORD;
     if (!s_book) {
         if (obk_initialize_book(&s_book) != ERR_NONE) return ERR_MEM;
     }

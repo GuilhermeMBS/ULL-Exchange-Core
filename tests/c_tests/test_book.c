@@ -1,7 +1,3 @@
-/*
-cmd: gcc core/src/errorlib.c core/src/book.c tests/c_tests/test_book.c -o book_tester -Icore/include -Wall -Wextra
-*/
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

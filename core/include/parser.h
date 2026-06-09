@@ -5,14 +5,17 @@
 #include "errorlib.h"
 #include "book.h"
 
-/*
-Return: pointer to the beginning of the Order array in RAM.
-Error: NULL if the file does not exist or malloc fails.
-*/
+/**
+ * @brief Carrega e parseia o CSV, retornando o array de ordens em memória.
+ * @param csv_path Caminho para o arquivo CSV.
+ * @param total_count Ponteiro que receberá o número total de ordens lidas.
+ * @return Ponteiro para o início do array de ordens em RAM, ou NULL se o arquivo não existir ou malloc falhar.
+ */
 obk_order_t* prs_create_orders(const char* csv_path, int32_t* total_count);
 
-/*
-Return: 0 on success.
-Error: -1 if the pointer is already NULL.
-*/
+/**
+ * @brief Libera o buffer de ordens alocado.
+ * @param buffer Ponteiro para o buffer a ser liberado.
+ * @return 0 em caso de sucesso, ERR_ORD se o ponteiro já for NULL.
+ */
 ret_code_t prs_free_buffer(obk_order_t* buffer);
