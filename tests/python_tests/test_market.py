@@ -1,6 +1,9 @@
 import os
+import sys
 import csv
-from scripts.generate_market import generateMarket
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+from scripts.generate_market import generate_market
 
 OUTPUT = "tests/python_tests/test_output.csv"
 
@@ -8,93 +11,94 @@ def cleanup():
     if os.path.exists(OUTPUT):
         os.remove(OUTPUT)
 
-def test_retorna_zero_em_sucesso():
-    result = generateMarket(OUTPUT, num_orders=10, failures=0.0)
-    assert result == 0, f"Esperado 0, got {result}"
+def test_returns_zero_on_success():
+    result = generate_market(OUTPUT, num_orders=10, failures=0.0)
+    assert result == 0, f"Expected 0, got {result}"
     cleanup()
-    print("test_retorna_zero_em_sucesso: OK")
+    print("test_returns_zero_on_success: OK")
 
-def test_retorna_erro_em_caminho_invalido():
-    result = generateMarket("/caminho/invalido/x.csv", 10, 0.0)
-    assert result == -4, f"Esperado -4, got {result}"
-    print("test_retorna_erro_em_caminho_invalido: OK")
+def test_returns_error_on_invalid_path():
+    result = generate_market("/invalid/path/x.csv", 10, 0.0)
+    assert result == -4, f"Expected -4, got {result}"
+    print("test_returns_error_on_invalid_path: OK")
 
-def test_arquivo_criado():
-    generateMarket(OUTPUT, num_orders=10, failures=0.0)
-    assert os.path.exists(OUTPUT), "Arquivo não foi criado"
+def test_file_is_created():
+    generate_market(OUTPUT, num_orders=10, failures=0.0)
+    assert os.path.exists(OUTPUT), "File was not created"
     cleanup()
-    print("test_arquivo_criado: OK")
+    print("test_file_is_created: OK")
 
-def test_100_ordens_mistas():
-    result = generateMarket(OUTPUT, num_orders=100, failures=0.1)
-    assert result == 0, f"Esperado 0, got {result}"
+def test_100_mixed_orders():
+    result = generate_market(OUTPUT, num_orders=100, failures=0.1)
+    assert result == 0, f"Expected 0, got {result}"
     cleanup()
-    print("test_100_ordens_mistas: OK")
+    print("test_100_mixed_orders: OK")
 
-def test_numero_de_linhas_correto():
-    generateMarket(OUTPUT, num_orders=100, failures=0.1)
+def test_correct_line_count():
+    generate_market(OUTPUT, num_orders=100, failures=0.1)
     with open(OUTPUT) as f:
-        linhas = list(csv.reader(f))
-    assert len(linhas) == 101, f"Esperado 101 linhas, got {len(linhas)}"
+        lines = list(csv.reader(f))
+    assert len(lines) == 101, f"Expected 101 lines, got {len(lines)}"
     cleanup()
-    print("test_numero_de_linhas_correto: OK")
+    print("test_correct_line_count: OK")
 
-def test_timestamps_em_ordem_crescente():
-    generateMarket(OUTPUT, num_orders=100, failures=0.0)
+def test_timestamps_are_ascending():
+    generate_market(OUTPUT, num_orders=100, failures=0.0)
     with open(OUTPUT) as f:
         reader = csv.DictReader(f)
-        timestamps = [row['timestamp'] for row in reader]
-    assert timestamps == sorted(timestamps), "Timestamps fora de ordem"
+        timestamps = [int(row['timestamp']) for row in reader]
+    assert timestamps == sorted(timestamps), "Timestamps out of order"
     cleanup()
-    print("test_timestamps_em_ordem_crescente: OK")
+    print("test_timestamps_are_ascending: OK")
 
-def test_side_apenas_C_ou_V():
-    generateMarket(OUTPUT, num_orders=100, failures=0.0)
+def test_side_only_A_or_B():
+    generate_market(OUTPUT, num_orders=100, failures=0.0)
     with open(OUTPUT) as f:
         reader = csv.DictReader(f)
         for row in reader:
-            assert row['side'] in ['C', 'V'], f"Side inválido: {row['side']}"
+            assert row['side'] in ['A', 'B'], f"Invalid side: {row['side']}"
     cleanup()
-    print("test_side_apenas_C_ou_V: OK")
+    print("test_side_only_A_or_B: OK")
 
-def test_ordens_invalidas_tem_preco_ou_qty_invalidos():
-    generateMarket(OUTPUT, num_orders=100, failures=1.0)
+def test_invalid_orders_have_bad_price_or_qty():
+    generate_market(OUTPUT, num_orders=100, failures=1.0)
     with open(OUTPUT) as f:
         reader = csv.DictReader(f)
         for row in reader:
             price = float(row['price'])
             qty   = float(row['quantity'])
-            assert price <= 0 or qty <= 0, "Ordem deveria ser inválida"
+            assert price <= 0 or qty <= 0, "Order should be invalid"
     cleanup()
-    print("test_ordens_invalidas_tem_preco_ou_qty_invalidos: OK")
+    print("test_invalid_orders_have_bad_price_or_qty: OK")
 
-def test_ordens_validas_tem_preco_e_qty_positivos():
-    generateMarket(OUTPUT, num_orders=100, failures=0.0)
+def test_valid_orders_have_positive_price_and_qty():
+    generate_market(OUTPUT, num_orders=100, failures=0.0)
     with open(OUTPUT) as f:
         reader = csv.DictReader(f)
         for row in reader:
-            assert float(row['price']) > 0, "Preço deveria ser positivo"
-            assert float(row['quantity']) > 0, "Quantidade deveria ser positiva"
+            assert float(row['price']) > 0, "Price should be positive"
+            assert float(row['quantity']) > 0, "Quantity should be positive"
     cleanup()
-    print("test_ordens_validas_tem_preco_e_qty_positivos: OK")
+    print("test_valid_orders_have_positive_price_and_qty: OK")
 
-def test_header_correto():
-    generateMarket(OUTPUT, num_orders=10, failures=0.0)
+def test_correct_header():
+    generate_market(OUTPUT, num_orders=10, failures=0.0)
     with open(OUTPUT) as f:
         header = csv.reader(f).__next__()
-    assert header == ['id', 'timestamp', 'side', 'price', 'quantity'], f"Header errado: {header}"
+    expected = ['timestamp', 'order_id', 'client_id', 'quantity', 'price', 'symbol', 'side']
+    assert header == expected, f"Wrong header: {header}"
     cleanup()
-    print("test_header_correto: OK")
+    print("test_correct_header: OK")
 
 if __name__ == "__main__":
-    test_retorna_zero_em_sucesso()
-    test_retorna_erro_em_caminho_invalido()
-    test_arquivo_criado()
-    test_100_ordens_mistas()
-    test_numero_de_linhas_correto()
-    test_timestamps_em_ordem_crescente()
-    test_side_apenas_C_ou_V()
-    test_ordens_invalidas_tem_preco_ou_qty_invalidos()
-    test_ordens_validas_tem_preco_e_qty_positivos()
-    test_header_correto()
-    print("\nTodos os testes passaram!")
+    test_returns_zero_on_success()
+    test_returns_error_on_invalid_path()
+    test_file_is_created()
+    test_100_mixed_orders()
+    test_correct_line_count()
+    test_timestamps_are_ascending()
+    test_side_only_A_or_B()
+    test_invalid_orders_have_bad_price_or_qty()
+    test_valid_orders_have_positive_price_and_qty()
+    test_correct_header()
+    print("\nAll market tests passed!")

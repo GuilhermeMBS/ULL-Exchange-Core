@@ -1,31 +1,31 @@
 #pragma once
 
-#include "error.h"
+#include "errorlib.h"
 #include "book.h"
 
 
 typedef struct {
-    uint32_t timestamp;          // Momento exato do match
-    int32_t trade_id;            // ID único do negócio realizado
-    int32_t buy_order_id;        // ID da ordem de compra original
-    int32_t sell_order_id;       // ID da ordem de venda original
-    int32_t buy_client_id;       // ID do comprador
-    int32_t sell_client_id;      // ID do vendedor
-    double price;                // Preço final da execução (pode ser diferente do pedido)
-    int32_t quantity;            // Quantidade que foi trocada
+    uint32_t timestamp;         // Exact moment of the match
+    int32_t trade_id;           // Unique trade identifier
+    int32_t buy_order_id;       // ID of the original buy order
+    int32_t sell_order_id;      // ID of the original sell order
+    int32_t buy_client_id;      // Buyer client ID
+    int32_t sell_client_id;     // Seller client ID
+    double price;               // Final execution price
+    int32_t quantity;           // Traded quantity
 } mtc_transaction_t;
 
 
 /*
-Retorno: 0 (sem Match → foi para o Book),  1 (Match Total), 2 (Match Parcial).
-Erro: -1 (ordem inválida recebida).
+Return: 0 (no match — queued in book), 1 (full match), 2 (partial match).
+Error: -1 (invalid order received).
 */
 int32_t mtc_make_trade(obk_order_t* incoming);
 
 
 /*
-Retorno: 0 (processado).
-Erro: -1 (falha na comunicação com o Book).
+Return: 0 (processed).
+Error: -1 (book communication failure).
 */
 int32_t mtc_make_bid(obk_order_t* order);
 int32_t mtc_make_sell(obk_order_t* order);

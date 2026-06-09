@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 
 
 #define BUFFER_SIZE 4096
@@ -195,13 +196,25 @@ ret_code_t obk_change_order(obk_book_pt book, uint32_t qty, char side) {
 
 obk_order_t obk_get_order(obk_book_pt book, char side) {
     obk_order_t cpy;
+    memset(&cpy, 0, sizeof(obk_order_t));
     ret_code_t code;
-    
+
     if (side == 'A') code = obk_copy_order(&cpy, book->asks, 0);
     else if (side == 'B') code = obk_copy_order(&cpy, book->bids, 0);
-    else (code = ERR_ORD);
+    else code = ERR_ORD;
 
     err_check_error(code);
 
     return cpy;
+}
+
+
+int32_t obk_ask_count(obk_book_pt book) {
+    if (!book) return 0;
+    return book->size_asks;
+}
+
+int32_t obk_bid_count(obk_book_pt book) {
+    if (!book) return 0;
+    return book->size_bids;
 }

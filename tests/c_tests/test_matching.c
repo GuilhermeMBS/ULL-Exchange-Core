@@ -1,5 +1,5 @@
 /*
-cmd: gcc core/src/error.c core/src/book.c core/src/matching.c tests/c_tests/test_matching.c -o matching_tester -Icore/include -Wall -Wextra
+cmd: gcc core/src/errorlib.c core/src/book.c core/src/ledger.c core/src/matching.c tests/c_tests/test_matching.c -o matching_tester -Icore/include -Wall -Wextra
 */
 
 #include <stdio.h>

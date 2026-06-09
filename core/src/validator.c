@@ -7,30 +7,28 @@
 
 void vld_validate_order(obk_order_t *buffer, int32_t count) {
     if (!buffer || count <= 0) return;
- 
+
     for (int32_t i = 0; i < count; i++) {
         obk_order_t *o = &buffer[i];
- 
-        /*
-         * Ordens já marcadas como inválidas pelo Parser (linhas malformadas)
-         * apenas têm os flags normalizados — não precisam ser reavaliadas.
-         */
+
+        /* Orders already marked invalid by the parser (malformed lines)
+         * only have their flags normalized — no need to re-evaluate. */
         if (!o->is_valid) {
             o->order_id = (uint32_t)-1;
             continue;
         }
- 
+
         bool valid = true;
- 
-        /* ── Regra 1: preço deve ser estritamente positivo ── */
+
+        /* Rule 1: price must be strictly positive */
         if (o->price <= 0.0) valid = false;
- 
-        /* ── Regra 2: quantidade deve ser >= 1 (uint32_t, jamais negativa) ── */
+
+        /* Rule 2: quantity must be >= 1 (uint32_t, never negative) */
         if (valid && o->quantity < 1) valid = false;
- 
-        /* ── Regra 3: lado deve ser 'A' (Ask) ou 'B' (Bid) ── */
+
+        /* Rule 3: side must be 'A' (Ask) or 'B' (Bid) */
         if (valid && o->side != 'A' && o->side != 'B') valid = false;
- 
+
         if (!valid) {
             o->is_valid = false;
             o->order_id = (uint32_t)-1;

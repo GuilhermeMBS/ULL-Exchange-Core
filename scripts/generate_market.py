@@ -1,49 +1,56 @@
-# Gerar um CSV de 1.000 ordens variadas (válidas e inválidas) e aleatórias
-# Gerar um CSV de 1000 ordens variadas (válidas e inválidas) e aleatórias
+# Generates a CSV of simulated market orders (valid and invalid) for the engine.
 
 import csv
 import random
 import sys
-from datetime import datetime, timedelta
 
-def generateMarket(filename, num_orders, failures):
+SYMBOLS = ["PETR4", "VALE3", "ITUB4", "BBDC4", "ABEV3"]
+
+def generate_market(filename, num_orders, failures):
     """
-    Gera um arquivo CSV com ordens de mercado simuladas.
+    Generates a CSV file with simulated market orders.
+
+    Output format: timestamp,order_id,client_id,quantity,price,symbol,side
+      - side: 'A' (Ask/Sell) or 'B' (Bid/Buy)
+      - timestamp: incrementing integer (Unix-like)
 
     Args:
-        filename   (str):   Caminho do arquivo CSV a ser gerado
-        num_orders (int):   Número total de ordens a gerar
-        failures   (float): Proporção de ordens inválidas (0.0 a 1.0)
+        filename   (str):   Path to the CSV file to be created
+        num_orders (int):   Total number of orders to generate
+        failures   (float): Proportion of invalid orders (0.0 to 1.0)
 
     Returns:
-        int: 0 se sucesso, -4 se erro ao criar o arquivo
+        int: 0 on success, -4 on file creation error
     """
     try:
         with open(filename, 'w', newline='') as f:
             writer = csv.writer(f)
-            writer.writerow(['id', 'timestamp', 'side', 'price', 'quantity'])
+            writer.writerow(['timestamp', 'order_id', 'client_id', 'quantity', 'price', 'symbol', 'side'])
 
-            base_time = datetime(2026, 1, 1, 9, 0, 0)
+            base_time = 1748000000
 
             for i in range(num_orders):
-                timestamp = base_time + timedelta(seconds=i)
+                timestamp = base_time + i
+                order_id  = i + 1
+                client_id = random.randint(1, 100)
+                symbol    = random.choice(SYMBOLS)
+                side      = random.choice(['A', 'B'])
 
                 if random.random() < failures:
-                    price = random.choice([-1, 0])
-                    qty = random.choice([-5, 0])
+                    price = random.choice([-1.0, 0.0])
+                    qty   = random.choice([0, -5])
                 else:
                     price = round(random.uniform(10.0, 200.0), 2)
-                    qty = random.randint(1, 100)
+                    qty   = random.randint(1, 100)
 
-                side = random.choice(['C', 'V'])
-                writer.writerow([i+1, timestamp.isoformat(), side, price, qty])
+                writer.writerow([timestamp, order_id, client_id, qty, price, symbol, side])
 
         return 0
 
     except Exception as e:
-        print(f"Erro ao gerar mercado: {e}", file=sys.stderr) 
+        print(f"Error generating market: {e}", file=sys.stderr)
         return -4
 
 if __name__ == "__main__":
-    result = generateMarket("data/market.csv", num_orders=1000, failures=0.1) #vai ter algumas inválidas
-    print(f"generateMarket retornou: {result}")
+    result = generate_market("data/market.csv", num_orders=1000, failures=0.1)
+    print(f"generate_market returned: {result}")
