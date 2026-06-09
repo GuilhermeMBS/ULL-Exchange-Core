@@ -5,29 +5,8 @@
 
 #define BUFFER_SIZE 4096
 
-struct obk_order_book_private_s {
-    obk_order_t asks[BUFFER_SIZE];
-    obk_order_t bids[BUFFER_SIZE];
-    int32_t     size_asks;
-    int32_t     size_bids;
-};
 
-extern ret_code_t changeOrder(obk_order_book_t* book, uint32_t qty, char side);
-
-/* esta atrapalhando a compilação:
- *
- * 1. obk_initialize_book() — linhas 48-49:
- *      st->asks[i].side      = "";   // ERRADO: side é char, não char*
- *      st->asks[i].timestamp = "";   // ERRADO: timestamp é uint32_t, não char*
- *    Correção: substituir "" por 0 nos dois campos.
- *
- * 2. obk_remove_order() — linha 139:
- *      obk_heapify(book, 0, *book_size);   // ERRADO: passa obk_order_book_t* onde espera obk_order_t*
- *    Correção: substituir book por side_book.
- */
-
-
-static obk_order_book_t s_book;
+static obk_book_pt      s_book;
 static int32_t          s_trade_id = 0;
 
 
@@ -67,7 +46,7 @@ int32_t mtc_make_bid(obk_order_t* order) {
         int32_t r = mtc_make_bid(order);
         return (r == 1) ? 1 : 2;
     }
-    changeOrder(&s_book, best_ask.quantity - qty, 'A');
+    obk_change_order(&s_book, best_ask.quantity - qty, 'A');
     return 2;
 }
 
@@ -108,7 +87,7 @@ int32_t mtc_make_sell(obk_order_t* order) {
         int32_t r = mtc_make_sell(order);
         return (r == 1) ? 1 : 2;
     }
-    changeOrder(&s_book, best_bid.quantity - qty, 'B');
+    obk_change_order(&s_book, best_bid.quantity - qty, 'B');
     return 2;
 }
 
@@ -127,8 +106,8 @@ void mtc_reset(void) {
     s_trade_id = 0;
 }
 
-int32_t mtc_get_ask_count(void) { return s_book.size_asks; }
-int32_t mtc_get_bid_count(void) { return s_book.size_bids; }
+ret_code_t mtc_get_ask_count(void) { return s_book.size_asks; }
+ret_code_t mtc_get_bid_count(void) { return s_book.size_bids; }
 
 obk_order_t mtc_get_best_ask(void) { return obk_get_order(&s_book, 'A'); }
 obk_order_t mtc_get_best_bid(void) { return obk_get_order(&s_book, 'B'); }
