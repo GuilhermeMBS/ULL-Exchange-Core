@@ -1,3 +1,7 @@
+/*
+cmd: gcc core/src/errorlib.c core/src/ledger.c tests/c_tests/test_ledger.c -o ledger_tester -Icore/include -Wall -Wextra
+*/
+
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
@@ -6,7 +10,7 @@
 
 /* Testa buffer nulo — deve retornar -3 (erro de memória) */
 void test_null_buffer() {
-    int result = registerTrades(NULL);
+    int result = ldg_register_trades(NULL);
     assert(result == -3);
     printf("test_null_buffer: OK\n");
 }
@@ -14,7 +18,7 @@ void test_null_buffer() {
 /* Testa buffer com data nulo — deve retornar -3 */
 void test_null_data() {
     Buffer b = { .data = NULL, .count = 1 };
-    int result = registerTrades(&b);
+    int result = ldg_register_trades(&b);
     assert(result == -3);
     printf("test_null_data: OK\n");
 }
@@ -23,7 +27,7 @@ void test_null_data() {
 void test_zero_count() {
     mtc_transaction_t t = {0};
     Buffer b = { .data = &t, .count = 0 };
-    int result = registerTrades(&b);
+    int result = ldg_register_trades(&b);
     assert(result == -3);
     printf("test_zero_count: OK\n");
 }
@@ -47,7 +51,7 @@ void test_100_transactions_in_order() {
     }
 
     Buffer b = { .data = transactions, .count = 100 };
-    int result = registerTrades(&b);
+    int result = ldg_register_trades(&b);
     assert(result == 0);
     printf("test_100_transactions_in_order: OK\n");
 }
@@ -66,7 +70,7 @@ void test_order_preserved_in_file() {
     }
 
     Buffer b = { .data = transactions, .count = 5 };
-    registerTrades(&b);
+    ldg_register_trades(&b);
 
     /* Lê o arquivo gerado e verifica a ordem */
     FILE* f = fopen("ledger.bin", "rb");

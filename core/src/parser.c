@@ -187,7 +187,7 @@ obk_order_t* prs_create_orders(const char *csv_path, int32_t *total_count) {
  *   -1  → buffer já era NULL
  */
 ret_code_t prs_free_buffer(obk_order_t *buffer) {
-    if (!buffer) return -1;
+    if (!buffer) return ERR_ORD;
     free(buffer);
     return ERR_NONE;
 }

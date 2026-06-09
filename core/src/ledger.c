@@ -1,7 +1,8 @@
 // ledger.c - Implementação do registro de transações em arquivo binário (ledger.bin).
 
 #include <stdio.h>
-#include <ledger.h>
+
+#include "ledger.h"
 
 /**
  * Grava todas as transações do buffer no arquivo "ledger.bin".
@@ -16,7 +17,7 @@ ret_code_t ldg_register_trades(Buffer* transactions) {
         return ERR_MEM;
 
     /* Abre o arquivo binário para escrita */
-    FILE* f = fopen("ledger.bin", "wb");
+    FILE* f = fopen("data/ledger.bin", "wb");
     if (!f) return ERR_MEM;
 
     /* Grava todas as transações de uma vez */

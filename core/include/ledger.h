@@ -30,7 +30,7 @@ int32_t ldg_init_ledger(const char* bin_path);
  @param t  Ponteiro para a transação a ser gravada
  @return   0 se gravado com sucesso, -1 se falha de escrita
  */
-int32_t ldg_register_trade(mtc_transaction_t* t);
+// int32_t ldg_register_trade(mtc_transaction_t* t);
 
 /*
   Grava todas as transações do buffer no arquivo "ledger.bin".
