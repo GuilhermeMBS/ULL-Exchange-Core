@@ -107,5 +107,5 @@ if __name__ == "__main__":
     test_correct_header()
 
     print("=" * 60)
-    print("\nALL MARKET TESTS PASSED!")
+    print("ALL MARKET TESTS PASSED!")
     print("=" * 60)

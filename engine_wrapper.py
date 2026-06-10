@@ -37,7 +37,7 @@ def load_engine():
     result = subprocess.run([
         "gcc", "-shared", "-fPIC",
         "core/src/book.c",
-        "core/src/errorlib.c",
+        "core/src/retcodes.c",
         "core/src/matching.c",
         "core/src/parser.c",
         "core/src/ledger.c",
@@ -53,25 +53,32 @@ def load_engine():
 
     lib = ctypes.CDLL("./engine.so")
 
-    lib.prs_create_orders.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_int32)]
-    lib.prs_create_orders.restype  = ctypes.POINTER(ObkOrder)
+    # Mapped according to the new opaque pointer TAD interfaces
+    lib.prs_create_orders.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_int32)]
+    lib.prs_create_orders.restype  = ctypes.c_int32
 
-    lib.prs_free_buffer.argtypes = [ctypes.POINTER(ObkOrder)]
+    lib.prs_get_order_by_index.argtypes = [ctypes.c_void_p, ctypes.c_int32, ctypes.POINTER(ObkOrder)]
+    lib.prs_get_order_by_index.restype  = ctypes.c_int32
+
+    lib.prs_free_buffer.argtypes = [ctypes.c_void_p]
     lib.prs_free_buffer.restype  = ctypes.c_int32
 
-    lib.mtc_make_trade.argtypes = [ctypes.POINTER(ObkOrder)]
-    lib.mtc_make_trade.restype  = ctypes.c_int32
+    lib.mtc_create_engine.argtypes = [ctypes.POINTER(ctypes.c_void_p)]
+    lib.mtc_create_engine.restype  = ctypes.c_int32
 
-    lib.ldg_init_ledger.argtypes = [ctypes.c_char_p]
-    lib.ldg_init_ledger.restype  = ctypes.c_int32
+    lib.mtc_process_matching.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int32, ctypes.POINTER(ctypes.c_int32)]
+    lib.mtc_process_matching.restype  = ctypes.c_int32
 
-    lib.ldg_register_trade.argtypes = [ctypes.POINTER(MtcTransaction)]
-    lib.ldg_register_trade.restype  = ctypes.c_int32
+    lib.mtc_get_trade_by_index.argtypes = [ctypes.c_void_p, ctypes.c_int32, ctypes.POINTER(MtcTransaction)]
+    lib.mtc_get_trade_by_index.restype  = ctypes.c_int32
 
-    lib.vld_validate_order.argtypes = [ctypes.POINTER(ObkOrder), ctypes.c_int32]
-    lib.vld_validate_order.restype  = None
+    lib.mtc_clear_engine.argtypes = [ctypes.POINTER(ctypes.c_void_p)]
+    lib.mtc_clear_engine.restype  = ctypes.c_int32
 
-    lib.mtc_reset.argtypes = []
-    lib.mtc_reset.restype  = None
+    lib.ldg_save_ledger.argtypes = [ctypes.c_char_p, ctypes.c_void_p, ctypes.c_int32]
+    lib.ldg_save_ledger.restype  = ctypes.c_int32
+
+    lib.vld_validate_order.argtypes = [ObkOrder, ctypes.POINTER(ctypes.c_bool)]
+    lib.vld_validate_order.restype  = ctypes.c_int32
 
     return lib

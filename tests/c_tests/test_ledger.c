@@ -5,23 +5,22 @@
 #include <string.h>
 
 #include "retcodes.h"
+#include "book.h"
+#include "parser.h"
 #include "matching.h"
 #include "ledger.h"
 
 static const char* TEST_PATH = "data/test_ledger_temp.bin";
 
 
-/* Private transaction struct layout definition to facilitate validation reading tests */
-typedef struct {
-    uint32_t timestamp;
-    int32_t trade_id;
-    int32_t buy_order_id;
-    int32_t sell_order_id;
-    int32_t buy_client_id;
-    int32_t sell_client_id;
-    double price;
-    int32_t quantity;
-} test_transaction_t;
+static void create_test_csv(const char *filename, const char *content) {
+    FILE *fp = fopen(filename, "w");
+    assert(fp != NULL);
+
+    fputs(content, fp);
+
+    fclose(fp);
+}
 
 
 static void cleanup() {
@@ -36,7 +35,6 @@ void test_init_caminho_valido() {
     mtc_handle_pt mtc_handle = NULL;
     assert(mtc_create_engine(&mtc_handle) == ERR_NONE);
 
-    /* Invokes the save routine with zero records to verify initialisation and file descriptor trashing */
     ret_code_t result = ldg_save_ledger(TEST_PATH, mtc_handle, 0);
     assert(result == ERR_NONE);
 
@@ -54,7 +52,6 @@ void test_init_caminho_invalido() {
     mtc_handle_pt mtc_handle = NULL;
     assert(mtc_create_engine(&mtc_handle) == ERR_NONE);
 
-    /* Rejects inaccessible operating system folders without crashing returning structural error codes */
     ret_code_t result = ldg_save_ledger("/caminho/invalido/ledger.bin", mtc_handle, 0);
     assert(result == ERR_ORD);
 
@@ -79,41 +76,43 @@ void test_register_ponteiro_nulo() {
 void test_register_transacao_valida() {
     printf("[TEST] Requirement 4: Single Valid Trade Registration...\n");
 
+    /* Generates an accurate matching condition by running real modular pipelines */
+    create_test_csv(
+        "ldg_single.csv",
+        "timestamp,order_id,client_id,quantity,price,symbol,side\n"
+        "1000,10,101,5,50.0,PETR4,A\n"
+        "1001,20,102,5,50.0,PETR4,B\n"
+    );
+
+    int32_t total_orders = 0;
+    int32_t total_trades = 0;
+    prs_handle_pt prs_handle = NULL;
     mtc_handle_pt mtc_handle = NULL;
+
+    assert(prs_create_orders("ldg_single.csv", &prs_handle, &total_orders) == ERR_NONE);
     assert(mtc_create_engine(&mtc_handle) == ERR_NONE);
 
-    /* Internal standalone instance hacking mechanism matching your local mock pattern rules */
-    struct mtc_instance_private_s {
-        void* book;
-        int32_t trade_id;
-        test_transaction_t trades_array[10];
-        int32_t trades_count;
-    };
-    struct mtc_instance_private_s* mock = (struct mtc_instance_private_s*)mtc_handle;
+    assert(mtc_process_matching(mtc_handle, prs_handle, total_orders, &total_trades) == ERR_NONE);
+    assert(total_trades == 1);
 
-    mock->trades_array[0].timestamp = 1000;
-    mock->trades_array[0].trade_id = 1;
-    mock->trades_array[0].buy_order_id = 10;
-    mock->trades_array[0].sell_order_id = 20;
-    mock->trades_array[0].buy_client_id = 101;
-    mock->trades_array[0].sell_client_id = 102;
-    mock->trades_array[0].price = 50.0;
-    mock->trades_array[0].quantity = 5;
-    mock->trades_count = 1;
-
-    ret_code_t result = ldg_save_ledger(TEST_PATH, mtc_handle, 1);
+    ret_code_t result = ldg_save_ledger(TEST_PATH, mtc_handle, total_trades);
     assert(result == ERR_NONE);
 
     FILE* f = fopen(TEST_PATH, "rb");
     assert(f != NULL);
-    test_transaction_t read_t;
-    assert(fread(&read_t, sizeof(test_transaction_t), 1, f) == 1);
+
+    mtc_transaction_t read_t;
+    size_t elements_read = fread(&read_t, sizeof(mtc_transaction_t), 1, f);
     fclose(f);
 
+    assert(elements_read == 1);
     assert(read_t.trade_id == 1);
     assert(read_t.price == 50.0);
+    assert(read_t.quantity == 5);
 
+    prs_free_buffer(prs_handle);
     mtc_clear_engine(&mtc_handle);
+    remove("ldg_single.csv");
     cleanup();
 
     printf("[PASS] Single trade record written successfully.\n\n");
@@ -124,33 +123,33 @@ void test_register_transacao_valida() {
 void test_100_transacoes_em_ordem() {
     printf("[TEST] Requirement 5: Sequential Write of 100 Trade Records...\n");
 
+    /* Creates 100 asks and 100 matching bids into a temporary file to populate 100 true transactions */
+    FILE* fp = fopen("ldg_multi.csv", "w");
+    assert(fp != NULL);
+    fputs("timestamp,order_id,client_id,quantity,price,symbol,side\n", fp);
+    for (int i = 0; i < 100; i++) {
+        fprintf(fp, "%d,%d,%d,%d,%lf,PETR4,A\n", 1000 + i, (i * 2) + 2, 200 + i, 10 + i, 50.0 + i);
+        fprintf(fp, "%d,%d,%d,%d,%lf,PETR4,B\n", 1000 + i, (i * 2) + 1, 100 + i, 10 + i, 50.0 + i);
+    }
+    fclose(fp);
+
+    int32_t total_orders = 0;
+    int32_t total_trades = 0;
+    prs_handle_pt prs_handle = NULL;
     mtc_handle_pt mtc_handle = NULL;
+
+    assert(prs_create_orders("ldg_multi.csv", &prs_handle, &total_orders) == ERR_NONE);
     assert(mtc_create_engine(&mtc_handle) == ERR_NONE);
 
-    struct mtc_instance_private_s {
-        void* book;
-        int32_t trade_id;
-        test_transaction_t trades_array[200];
-        int32_t trades_count;
-    };
-    struct mtc_instance_private_s* mock = (struct mtc_instance_private_s*)mtc_handle;
+    assert(mtc_process_matching(mtc_handle, prs_handle, total_orders, &total_trades) == ERR_NONE);
+    assert(total_trades == 100);
 
-    for (int i = 0; i < 100; i++) {
-        mock->trades_array[i].timestamp = 1000 + i;
-        mock->trades_array[i].trade_id = i + 1;
-        mock->trades_array[i].buy_order_id = (i * 2) + 1;
-        mock->trades_array[i].sell_order_id = (i * 2) + 2;
-        mock->trades_array[i].buy_client_id = 100 + i;
-        mock->trades_array[i].sell_client_id = 200 + i;
-        mock->trades_array[i].price = 50.0 + i;
-        mock->trades_array[i].quantity = 10 + i;
-    }
-    mock->trades_count = 100;
-
-    ret_code_t result = ldg_save_ledger(TEST_PATH, mtc_handle, 100);
+    ret_code_t result = ldg_save_ledger(TEST_PATH, mtc_handle, total_trades);
     assert(result == ERR_NONE);
 
+    prs_free_buffer(prs_handle);
     mtc_clear_engine(&mtc_handle);
+    remove("ldg_multi.csv");
     cleanup();
 
     printf("[PASS] 100 consecutive trade records written without error.\n\n");
@@ -161,40 +160,45 @@ void test_100_transacoes_em_ordem() {
 void test_ordem_preservada_no_arquivo() {
     printf("[TEST] Requirement 6: Insertion Order Preservation in Binary File...\n");
 
+    FILE* fp = fopen("ldg_preserve.csv", "w");
+    assert(fp != NULL);
+    fputs("timestamp,order_id,client_id,quantity,price,symbol,side\n", fp);
+    for (int i = 0; i < 5; i++) {
+        fprintf(fp, "%d,%d,1,%d,%lf,PETR4,A\n", 1000 + i, i + 1, i + 1, 10.0 * (i + 1));
+        fprintf(fp, "%d,%d,2,%d,%lf,PETR4,B\n", 1000 + i, i + 10, i + 1, 10.0 * (i + 1));
+    }
+    fclose(fp);
+
+    int32_t total_orders = 0;
+    int32_t total_trades = 0;
+    prs_handle_pt prs_handle = NULL;
     mtc_handle_pt mtc_handle = NULL;
+
+    assert(prs_create_orders("ldg_preserve.csv", &prs_handle, &total_orders) == ERR_NONE);
     assert(mtc_create_engine(&mtc_handle) == ERR_NONE);
 
-    struct mtc_instance_private_s {
-        void* book;
-        int32_t trade_id;
-        test_transaction_t trades_array[10];
-        int32_t trades_count;
-    };
-    struct mtc_instance_private_s* mock = (struct mtc_instance_private_s*)mtc_handle;
+    assert(mtc_process_matching(mtc_handle, prs_handle, total_orders, &total_trades) == ERR_NONE);
+    assert(total_trades == 5);
 
-    for (int i = 0; i < 5; i++) {
-        mock->trades_array[i].trade_id  = i + 1;
-        mock->trades_array[i].price     = 10.0 * (i + 1);
-        mock->trades_array[i].quantity  = i + 1;
-        mock->trades_array[i].timestamp = 1000 + i;
-    }
-    mock->trades_count = 5;
-
-    assert(ldg_save_ledger(TEST_PATH, mtc_handle, 5) == ERR_NONE);
+    assert(ldg_save_ledger(TEST_PATH, mtc_handle, total_trades) == ERR_NONE);
 
     FILE* f = fopen(TEST_PATH, "rb");
     assert(f != NULL);
 
-    test_transaction_t read_back[5];
-    assert(fread(read_back, sizeof(test_transaction_t), 5, f) == 5);
+    mtc_transaction_t read_back[5];
+    size_t total_read = fread(read_back, sizeof(mtc_transaction_t), 5, f);
     fclose(f);
 
+    assert(total_read == 5);
+
     for (int i = 0; i < 5; i++) {
-        assert(read_back[i].trade_id == mock->trades_array[i].trade_id);
-        assert(read_back[i].quantity == mock->trades_array[i].quantity);
+        assert(read_back[i].trade_id == i + 1);
+        assert(read_back[i].quantity == i + 1);
     }
 
+    prs_free_buffer(prs_handle);
     mtc_clear_engine(&mtc_handle);
+    remove("ldg_preserve.csv");
     cleanup();
 
     printf("[PASS] Binary file preserves insertion order across all records.\n\n");

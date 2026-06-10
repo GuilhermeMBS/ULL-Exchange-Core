@@ -5,15 +5,24 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from engine_wrapper import load_engine, ObkOrder
+from engine_wrapper import load_engine, ObkOrder, MtcTransaction
 
 LEDGER_PATH = "tests/python_tests/test_ledger_temp.bin"
 MARKET_PATH = "tests/python_tests/test_market_temp.csv"
 
+
+def create_test_market_csv(filename, content):
+    """Helper to write short simulated input paths onto disk safely."""
+    with open(filename, "w") as f:
+        f.write(content)
+
+
 def cleanup():
-    for f in [LEDGER_PATH, MARKET_PATH, "engine.so"]:
+    # CORRECTION: Removed 'engine.so' from local removal to prevent Windows file locking permission violations
+    for f in [LEDGER_PATH, MARKET_PATH]:
         if os.path.exists(f):
             os.remove(f)
+
 
 def make_order(order_id, price, quantity, side, timestamp=1000):
     """Creates a populated obk_order_t."""
@@ -28,6 +37,7 @@ def make_order(order_id, price, quantity, side, timestamp=1000):
     o.is_valid  = True
     return o
 
+
 # ── Loading ───────────────────────────────────────────────────────────────────
 
 def test_engine_loads():
@@ -37,93 +47,194 @@ def test_engine_loads():
     print("test_engine_loads: OK")
     return lib
 
+
 # ── Ledger ────────────────────────────────────────────────────────────────────
 
 def test_ledger_init(lib):
-    """Ledger must initialize the binary file successfully."""
-    result = lib.ldg_init_ledger(LEDGER_PATH.encode())
+    """Ledger must initialize the binary file successfully via engine hooks."""
+    mtc_handle = ctypes.c_void_p()
+    assert lib.mtc_create_engine(ctypes.byref(mtc_handle)) == 0
+    
+    result = lib.ldg_save_ledger(LEDGER_PATH.encode(), mtc_handle, 0)
     assert result == 0, f"Expected 0, got {result}"
     assert os.path.exists(LEDGER_PATH), "Ledger file was not created"
+    
+    lib.mtc_clear_engine(ctypes.byref(mtc_handle))
+    cleanup()
     print("test_ledger_init: OK")
 
+
 def test_ledger_init_invalid_path(lib):
-    """Ledger must return -1 for an invalid path."""
-    result = lib.ldg_init_ledger(b"/invalid/path/ledger.bin")
-    assert result == -1, f"Expected -1, got {result}"
+    """Ledger must return a validation error code for an invalid path."""
+    mtc_handle = ctypes.c_void_p()
+    assert lib.mtc_create_engine(ctypes.byref(mtc_handle)) == 0
+
+    result = lib.ldg_save_ledger(b"/invalid/path/ledger.bin", mtc_handle, 0)
+    assert result != 0, f"Expected error token, got {result}"
+    
+    lib.mtc_clear_engine(ctypes.byref(mtc_handle))
     print("test_ledger_init_invalid_path: OK")
+
 
 # ── Validator ─────────────────────────────────────────────────────────────────
 
 def test_validator_invalid_price(lib):
     """Order with price <= 0 must have order_id set to -1."""
-    orders = (ObkOrder * 1)()
-    orders[0] = make_order(order_id=1, price=-10.0, quantity=5, side='B')
-    lib.vld_validate_order(orders, 1)
-    assert orders[0].order_id == ctypes.c_uint32(-1).value
+    order = make_order(order_id=1, price=-10.0, quantity=5, side='B')
+    is_valid = ctypes.c_bool(True)
+    
+    lib.vld_validate_order(order, ctypes.byref(is_valid))
+    assert is_valid.value is False
     print("test_validator_invalid_price: OK")
+
 
 def test_validator_invalid_quantity(lib):
     """Order with quantity <= 0 must have order_id set to -1."""
-    orders = (ObkOrder * 1)()
-    orders[0] = make_order(order_id=2, price=10.0, quantity=0, side='B')
-    lib.vld_validate_order(orders, 1)
-    assert orders[0].order_id == ctypes.c_uint32(-1).value
+    order = make_order(order_id=2, price=10.0, quantity=0, side='B')
+    is_valid = ctypes.c_bool(True)
+    
+    lib.vld_validate_order(order, ctypes.byref(is_valid))
+    assert is_valid.value is False
     print("test_validator_invalid_quantity: OK")
+
 
 def test_validator_invalid_side(lib):
     """Order with side other than A or B must have order_id set to -1."""
-    orders = (ObkOrder * 1)()
-    orders[0] = make_order(order_id=3, price=10.0, quantity=5, side='X')
-    lib.vld_validate_order(orders, 1)
-    assert orders[0].order_id == ctypes.c_uint32(-1).value
+    order = make_order(order_id=3, price=10.0, quantity=5, side='X')
+    is_valid = ctypes.c_bool(True)
+    
+    lib.vld_validate_order(order, ctypes.byref(is_valid))
+    assert is_valid.value is False
     print("test_validator_invalid_side: OK")
+
 
 def test_validator_valid_order(lib):
     """Valid order must not have its order_id modified."""
-    orders = (ObkOrder * 1)()
-    orders[0] = make_order(order_id=4, price=10.0, quantity=5, side='B')
-    lib.vld_validate_order(orders, 1)
-    assert orders[0].order_id == 4
+    order = make_order(order_id=4, price=10.0, quantity=5, side='B')
+    is_valid = ctypes.c_bool(False)
+    
+    lib.vld_validate_order(order, ctypes.byref(is_valid))
+    assert is_valid.value is True
     print("test_validator_valid_order: OK")
+
 
 # ── Matching ──────────────────────────────────────────────────────────────────
 
 def test_matching_no_match_goes_to_book(lib):
     """Bid order with no available ask must return 0 (queued in book)."""
-    lib.mtc_reset()
-    o = make_order(order_id=10, price=50.0, quantity=5, side='B')
-    result = lib.mtc_make_trade(ctypes.byref(o))
-    assert result == 0, f"Expected 0, got {result}"
+    create_test_market_csv(
+        MARKET_PATH,
+        "timestamp,order_id,client_id,quantity,price,symbol,side\n"
+        "1000,10,1,5,50.0,PETR4,B\n"
+    )
+    
+    prs_handle = ctypes.c_void_p()
+    total_orders = ctypes.c_int32(0)
+    total_trades = ctypes.c_int32(0)
+    mtc_handle = ctypes.c_void_p()
+    
+    assert lib.prs_create_orders(MARKET_PATH.encode(), ctypes.byref(prs_handle), ctypes.byref(total_orders)) == 0
+    assert lib.mtc_create_engine(ctypes.byref(mtc_handle)) == 0
+    
+    assert lib.mtc_process_matching(mtc_handle, prs_handle, total_orders, ctypes.byref(total_trades)) == 0
+    assert total_trades.value == 0
+    assert lib.mtc_get_bid_count(mtc_handle) == 1
+    
+    lib.prs_free_buffer(prs_handle)
+    lib.mtc_clear_engine(ctypes.byref(mtc_handle))
+    remove_temp_files()
     print("test_matching_no_match_goes_to_book: OK")
+
 
 def test_matching_invalid_order(lib):
     """Invalid order (bad side) must return -1."""
-    lib.mtc_reset()
-    o = make_order(order_id=ctypes.c_uint32(-1).value, price=-1.0, quantity=0, side='X')
-    o.is_valid = False
-    result = lib.mtc_make_trade(ctypes.byref(o))
-    assert result == -1, f"Expected -1, got {result}"
+    create_test_market_csv(
+        MARKET_PATH,
+        "timestamp,order_id,client_id,quantity,price,symbol,side\n"
+        "1000,15,1,5,50.0,PETR4,X\n"
+    )
+    
+    prs_handle = ctypes.c_void_p()
+    total_orders = ctypes.c_int32(0)
+    total_trades = ctypes.c_int32(0)
+    mtc_handle = ctypes.c_void_p()
+    
+    assert lib.prs_create_orders(MARKET_PATH.encode(), ctypes.byref(prs_handle), ctypes.byref(total_orders)) == 0
+    assert lib.mtc_create_engine(ctypes.byref(mtc_handle)) == 0
+    
+    assert lib.mtc_process_matching(mtc_handle, prs_handle, total_orders, ctypes.byref(total_trades)) == 0
+    assert total_trades.value == 0
+    assert lib.mtc_get_bid_count(mtc_handle) == 0
+    assert lib.mtc_get_ask_count(mtc_handle) == 0
+    
+    lib.prs_free_buffer(prs_handle)
+    lib.mtc_clear_engine(ctypes.byref(mtc_handle))
+    remove_temp_files()
     print("test_matching_invalid_order: OK")
+
 
 def test_matching_full_match(lib):
     """Ask and bid with same price and quantity must produce a full match (1)."""
-    lib.mtc_reset()
-    ask = make_order(order_id=20, price=50.0, quantity=5, side='A', timestamp=1000)
-    bid = make_order(order_id=21, price=50.0, quantity=5, side='B', timestamp=1001)
-    lib.mtc_make_trade(ctypes.byref(ask))
-    result = lib.mtc_make_trade(ctypes.byref(bid))
-    assert result == 1, f"Expected 1 (full match), got {result}"
+    create_test_market_csv(
+        MARKET_PATH,
+        "timestamp,order_id,client_id,quantity,price,symbol,side\n"
+        "1000,20,1,5,50.0,PETR4,A\n"
+        "1001,21,2,5,50.0,PETR4,B\n"
+    )
+    
+    prs_handle = ctypes.c_void_p()
+    total_orders = ctypes.c_int32(0)
+    total_trades = ctypes.c_int32(0)
+    mtc_handle = ctypes.c_void_p()
+    
+    assert lib.prs_create_orders(MARKET_PATH.encode(), ctypes.byref(prs_handle), ctypes.byref(total_orders)) == 0
+    assert lib.mtc_create_engine(ctypes.byref(mtc_handle)) == 0
+    
+    assert lib.mtc_process_matching(mtc_handle, prs_handle, total_orders, ctypes.byref(total_trades)) == 0
+    assert total_trades.value == 1
+    
+    assert lib.ldg_save_ledger(LEDGER_PATH.encode(), mtc_handle, total_trades) == 0
+    assert os.path.exists(LEDGER_PATH)
+    
+    lib.prs_free_buffer(prs_handle)
+    lib.mtc_clear_engine(ctypes.byref(mtc_handle))
+    remove_temp_files()
     print("test_matching_full_match: OK")
+
 
 def test_matching_partial_match(lib):
     """Bid larger than ask must produce a partial match (2)."""
-    lib.mtc_reset()
-    ask = make_order(order_id=30, price=50.0, quantity=3, side='A', timestamp=1000)
-    bid = make_order(order_id=31, price=50.0, quantity=10, side='B', timestamp=1001)
-    lib.mtc_make_trade(ctypes.byref(ask))
-    result = lib.mtc_make_trade(ctypes.byref(bid))
-    assert result == 2, f"Expected 2 (partial match), got {result}"
+    create_test_market_csv(
+        MARKET_PATH,
+        "timestamp,order_id,client_id,quantity,price,symbol,side\n"
+        "1000,30,1,3,50.0,PETR4,A\n"
+        "1001,31,2,10,50.0,PETR4,B\n"
+    )
+    
+    prs_handle = ctypes.c_void_p()
+    total_orders = ctypes.c_int32(0)
+    total_trades = ctypes.c_int32(0)
+    mtc_handle = ctypes.c_void_p()
+    
+    assert lib.prs_create_orders(MARKET_PATH.encode(), ctypes.byref(prs_handle), ctypes.byref(total_orders)) == 0
+    assert lib.mtc_create_engine(ctypes.byref(mtc_handle)) == 0
+    
+    assert lib.mtc_process_matching(mtc_handle, prs_handle, total_orders, ctypes.byref(total_trades)) == 0
+    assert total_trades.value == 1
+    assert lib.mtc_get_bid_count(mtc_handle) == 1
+    
+    lib.prs_free_buffer(prs_handle)
+    lib.mtc_clear_engine(ctypes.byref(mtc_handle))
+    remove_temp_files()
     print("test_matching_partial_match: OK")
+
+
+def remove_temp_files():
+    if os.path.exists(MARKET_PATH):
+        os.remove(MARKET_PATH)
+    if os.path.exists(LEDGER_PATH):
+        os.remove(LEDGER_PATH)
+
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 
