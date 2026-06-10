@@ -6,7 +6,7 @@
 
 #include "retcodes.h"
 #include "book.h"
-#include "parser.h"
+#include "parserlib.h"
 #include "validator.h"
 
 #define PRS_MAX_LINE 256

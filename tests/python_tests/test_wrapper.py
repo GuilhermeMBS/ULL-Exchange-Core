@@ -18,7 +18,6 @@ def create_test_market_csv(filename, content):
 
 
 def cleanup():
-    # CORRECTION: Removed 'engine.so' from local removal to prevent Windows file locking permission violations
     for f in [LEDGER_PATH, MARKET_PATH]:
         if os.path.exists(f):
             os.remove(f)

@@ -39,7 +39,7 @@ def load_engine():
         "core/src/book.c",
         "core/src/retcodes.c",
         "core/src/matching.c",
-        "core/src/parser.c",
+        "core/src/parserlib.c",
         "core/src/ledger.c",
         "core/src/validator.c",
         "-Icore/include",

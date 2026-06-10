@@ -205,7 +205,7 @@ void test_mixed_buffer() {
 
 
 int main() {
-    printf("=============== STARTING VALIDATOR TESTS ===============\n\n");
+    printf("\n=============== STARTING VALIDATOR TESTS ===============\n\n");
 
     test_null_buffer();
     test_zero_count();
@@ -217,7 +217,7 @@ int main() {
     test_previously_invalid_order();
     test_mixed_buffer();
 
-    printf("=============== ALL VALIDATOR TESTS PASSED ===============\n");
+    printf("=============== ALL VALIDATOR TESTS PASSED ===============\n\n");
 
     return 0;
 }

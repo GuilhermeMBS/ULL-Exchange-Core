@@ -5,12 +5,6 @@
 
 
 /**
- * @file ledger.h
- * @brief Transaction binary logging database module.
- */
-
-
-/**
  * @brief Collects and processes executed transaction entries to store them into the binary file database.
  * @param bin_path File path target where the output .bin ledger file will be generated.
  * @param mtc_handle Opaque pointer targeting the populated matching engine instance metadata container.

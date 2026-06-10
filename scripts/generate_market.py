@@ -48,7 +48,7 @@ def generate_market(filename, num_orders, failures):
         return 0
 
     except Exception as e:
-        print(f"Error generating market: {e}", file=sys.stderr)
+        # print(f"Error generating market: {e}", file=sys.stderr)
         return -4
 
 if __name__ == "__main__":
