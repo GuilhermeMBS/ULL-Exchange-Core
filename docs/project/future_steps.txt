@@ -3,3 +3,4 @@ Possíveis implementações:
 2. Separar em transações de empresas diferentes
 3. Usar threads para otimizar o processo no Ledge
 4. Usar threads nos intermediários
+5. Otimizar código: heapify olha sempre filhos e pai, então não é otimizado, por exemplo

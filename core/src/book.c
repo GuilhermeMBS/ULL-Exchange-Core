@@ -21,6 +21,14 @@ struct obk_book_private_s {
 
 typedef struct obk_book_private_s* obk_book_private_pt;
 
+// Typedef only used in a static function, so it should not be visible to other files
+typedef enum {
+    CMP_ERROR   = -1,
+    FIRST_IN    =  1,
+    SECOND_IN   =  2,
+    EQUALS      =  3
+} obk_cmp_t;
+
 
 ret_code_t obk_initialize_book(obk_book_pt* book) {
     if (book == NULL) return ERR_MEM;
@@ -66,52 +74,126 @@ ret_code_t obk_copy_order(obk_order_pt cpy, obk_order_pt buffer, int32_t idx) {
 }
 
 
-static ret_code_t obk_heapify(obk_order_pt book, int32_t i, uint32_t size, bool max) {
-    const double i_price = book[i].price;
-    const tm_stmp_t i_time = book[i].timestamp;
-    uint32_t l, r, p;
+/**
+ * @brief This function recieves two valid orders as inputs and returns the one with the
+ * highest price or the one with the smallest timestamp (in case of same price orders).
+ * @attention The input order matters, because the comparison will return the answer according to it.
+ * @param first_in First valid order.
+ * @param second_in Second valid order.
+ * @param max_heap Boolean for the type of the heap. Max = true e min = false.
+ * @return Returns a obk_cmp_t that identifies if the first or the second input have the priority in 
+ * the heap. For example, if its a min heap, it will return the code that identifies the input with
+ * the smallest price (or smallest timestamp).
+ */
+static obk_cmp_t obk_cmp_order(obk_order_t first_in, obk_order_t second_in, bool max_heap) {
+    double f_price = first_in.price;
+    double s_price = second_in.price;
+
+    if (f_price == s_price) {
+        if (first_in.timestamp < second_in.timestamp) return FIRST_IN;
+        else if (first_in.timestamp > second_in.timestamp) return SECOND_IN;
+    }
+
+    else if (f_price > s_price) {
+        if (max_heap) return FIRST_IN;
+        else return SECOND_IN;
+    }
+
+    else if (f_price < s_price) {
+        if (max_heap) return SECOND_IN;
+        else return FIRST_IN;
+    }
+
+    else return CMP_ERROR;
+
+    return EQUALS;
+}
+
+
+/**
+ * @brief This function heapifies any element in a heap, no matter where it is. So it goes up or down
+ * according to the heap. You don't need to specify any behavior, only if it's a max or min heap.
+ * @param book The heap it is located.
+ * @param i The index of the element you want to heapify.
+ * @param size The size of the heap.
+ * @param max_heap If it's a max heap (true) or a min heap (false).
+ * @return Returns a ret_code_t according to the retcodes header.
+ */
+static ret_code_t obk_heapify(obk_order_pt book, uint32_t i, uint32_t size, bool max_heap) {
+    /**
+     * cmp is a 1 byte variable that holds the information about the comparisons of i with its
+     * childs and parent. The variable holds those informations as follows:
+     * First bit := Left Child is a valid swap.
+     * Second bit := Right Child is a valid swap.
+     * Third bit := Parent is a valid swap.
+     * Forth bit := Left Child and Right Child are a valid swap, but Left is the smallest/biggest.
+     * Fifth bit := Left Child and Right Child are a valid swap, but Right is the smallest/biggest.
+     * Others := Should be all zeroes.
+     */
+    uint8_t cmp;
+    obk_cmp_t cmp_ret;
     obk_order_t tmp;
-    bool stop = false;
+    uint32_t l, r, p; // left child, right child, parent
 
-    while(stop == false) {
-        l  = 2*i + 1;
-        r  = 2*i + 2;
-        p  = (i - 1) / 2;
-        bool c1_l, c1_r, cp;
+    do {
+        cmp = 0x00;
+        l = (2*i + 1);
+        r = (2*i + 2);
 
-        bool c2_l = (l < size) ? (book[l].price == i_price) && (book[l].timestamp < i_time) : false;
-        bool c2_r = (r < size) ? (book[r].price == i_price) && (book[r].timestamp < i_time) : false;
-        if (max) {
-            c1_l = (l < size) ? (book[l].price > i_price) : false;
-            c1_r = (r < size) ? (book[r].price > i_price) : false;
-            cp = (book[i].price > book[p].price);
-        }
-        else {
-            c1_l = (l < size) ? (book[l].price < i_price) : false;
-            c1_r = (r < size) ? (book[r].price < i_price) : false;
-            cp = (book[i].price < book[p].price);
+        // Checks swap with left child
+        if (l < size) {
+            cmp_ret = obk_cmp_order(book[i], book[l], max_heap);
+            if (cmp_ret == CMP_ERROR) return ERR_ORD;
+            else if (cmp_ret == SECOND_IN) (cmp |= 0x01);
         }
 
-        if (c1_l || c2_l) {
+        // Checks swap with right child
+        if (r < size) {
+            cmp_ret = obk_cmp_order(book[i], book[r], max_heap);
+            if (cmp_ret == CMP_ERROR) return ERR_ORD;
+            else if (cmp_ret == SECOND_IN) (cmp |= 0x02);
+        }
+
+        // Checks swap if both childs are valid
+        if (cmp == 0x03) {
+            cmp_ret = obk_cmp_order(book[l], book[r], max_heap);
+            if (cmp_ret == FIRST_IN || cmp_ret == EQUALS) (cmp = 0x08);
+            else if (cmp_ret == SECOND_IN) (cmp = 0x10);
+            else return ERR_ORD;
+        }
+
+        // Checks swap with parent
+        if (i > 0) {
+            p = (i - 1) / 2;
+            cmp_ret = obk_cmp_order(book[i], book[p], max_heap);
+            if (cmp_ret == CMP_ERROR) return ERR_ORD;
+            else if (cmp_ret == FIRST_IN) (cmp |= 0x04);
+        }
+
+        // Swaps with left child
+        if (cmp & 0x09) {
             tmp = book[i];
             book[i] = book[l];
             book[l] = tmp;
             i = l;
         }
-        else if (c1_r || c2_r) {
+
+        // Swaps with right child
+        else if (cmp & 0x12) {
             tmp = book[i];
             book[i] = book[r];
             book[r] = tmp;
             i = r;
         }
-        else if (cp || ((book[i].price == book[p].price) && (book[i].timestamp < book[p].timestamp))) {
+
+        // Swaps with parent
+        else if (cmp & 0x04) {
             tmp = book[p];
             book[p] = book[i];
             book[i] = tmp;
             i = p;
         }
-        else stop = true;
-    }
+    } while(cmp);
 
     return ERR_NONE;
 }

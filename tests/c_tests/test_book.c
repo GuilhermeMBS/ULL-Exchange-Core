@@ -220,6 +220,114 @@ void test_buffer_boundary_saturation() {
     printf("[PASS] Matrix saturation limits and safe error returns verified.\n\n");
 }
 
+// 8. Validate FIFO for equal price
+void test_equal_price_fifo_sift_down() {
+    printf("[TEST] Heap: Equal-price FIFO sift-down ordering...\n");
+
+    obk_book_pt book = NULL;
+    assert(obk_initialize_book(&book) == ERR_NONE);
+
+    uint32_t timestamps[] = {3, 1, 5, 2, 6, 4};
+    for (int i = 0; i < 6; i++) {
+        obk_order_t o = {
+            .order_id = i + 1,
+            .client_id = 1,
+            .price = 100.0,
+            .quantity = 10,
+            .side = 'A',
+            .timestamp = timestamps[i],
+            .is_valid = true
+        };
+        assert(obk_insert_order(book, &o) == ERR_NONE);
+    }
+
+    // Must pop strictly in chronological order: 1, 2, 3, 4, 5, 6
+    for (uint32_t expected_ts = 1; expected_ts <= 6; expected_ts++) {
+        obk_order_t best = obk_get_order(book, 'A');
+        assert(best.timestamp == expected_ts);
+        assert(obk_remove_order(book, 'A') == ERR_NONE);
+    }
+
+    assert(obk_clear_book(&book) == ERR_NONE);
+    printf("[PASS] Equal-price FIFO ordering verified.\n\n");
+}
+
+// 9. Validate Asymmetrical Sift-Down
+void test_bids_max_heap_sift_down() {
+    printf("[TEST] Heap: Bids (Max-Heap) sift-down with right child preference...\n");
+
+    obk_book_pt book = NULL;
+    assert(obk_initialize_book(&book) == ERR_NONE);
+
+    // Insert bids: 100, 70, 80, 60
+    double prices[] = {100.0, 70.0, 80.0, 60.0};
+    for (int i = 0; i < 4; i++) {
+        obk_order_t o = {
+            .order_id = i + 1,
+            .client_id = 1,
+            .price = prices[i],
+            .quantity = 10,
+            .side = 'B',
+            .timestamp = (uint32_t)(i + 1),
+            .is_valid = true
+        };
+        assert(obk_insert_order(book, &o) == ERR_NONE);
+    }
+
+    // Pop root (100.0) -> root becomes 60.0, children are 70.0 (left) and 80.0 (right)
+    assert(obk_get_order(book, 'B').price == 100.0);
+    assert(obk_remove_order(book, 'B') == ERR_NONE);
+
+    // Sift-down must pick 80.0 (right child), not 70.0 (left child)
+    assert(obk_get_order(book, 'B').price == 80.0);
+
+    // Sequential drain must yield: 80.0, 70.0, 60.0
+    assert(obk_remove_order(book, 'B') == ERR_NONE);
+    assert(obk_get_order(book, 'B').price == 70.0);
+
+    assert(obk_remove_order(book, 'B') == ERR_NONE);
+    assert(obk_get_order(book, 'B').price == 60.0);
+
+    assert(obk_clear_book(&book) == ERR_NONE);
+    printf("[PASS] Max-Heap asymmetric sift-down verified.\n\n");
+}
+
+// 10. Validate Heap-Sort Stress Test
+void test_monotonic_full_drain() {
+    printf("[TEST] Heap: Full monotonic drain (Heap-sort invariant)...\n");
+
+    obk_book_pt book = NULL;
+    assert(obk_initialize_book(&book) == ERR_NONE);
+
+    double test_prices[] = {45.0, 12.0, 89.0, 12.0, 33.0, 7.0, 50.0, 100.0, 2.0, 33.0};
+    int count = sizeof(test_prices) / sizeof(test_prices[0]);
+
+    for (int i = 0; i < count; i++) {
+        obk_order_t o = {
+            .order_id = i + 1,
+            .client_id = 1,
+            .price = test_prices[i],
+            .quantity = 10,
+            .side = 'A',
+            .timestamp = (uint32_t)(i + 1),
+            .is_valid = true
+        };
+        assert(obk_insert_order(book, &o) == ERR_NONE);
+    }
+
+    double prev_price = 0.0;
+    for (int i = 0; i < count; i++) {
+        obk_order_t current = obk_get_order(book, 'A');
+        assert(current.price >= prev_price);
+        prev_price = current.price;
+        assert(obk_remove_order(book, 'A') == ERR_NONE);
+    }
+
+    assert(obk_clear_book(&book) == ERR_NONE);
+    printf("[PASS] Monotonic drain verified.\n\n");
+}
+
+
 int main() {
     printf("\n============== STARTING SIMULATION ENGINE SUITE ===============\n\n");
     
@@ -230,6 +338,9 @@ int main() {
     test_removal_and_get_order_behavior();
     test_change_order_modification();
     test_buffer_boundary_saturation();
+    test_equal_price_fifo_sift_down();
+    test_bids_max_heap_sift_down();
+    test_monotonic_full_drain();
 
     printf("============ ALL TEST DOMAINS VERIFIED SUCCESSFULLY ===========\n\n");
     return 0;
